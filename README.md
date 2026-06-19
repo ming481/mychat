@@ -1,6 +1,6 @@
-# ChatApp — 全功能即时通讯 Web 应用
+# ChatApp
 
-基于 **阿里巴巴 ChatUI** + **React** + **Node.js** + **Socket.io** + **PostgreSQL** 构建的全功能聊天应用，支持手机/电脑双端响应式。
+基于开源UI框架构建的全功能聊天应用，支持手机/电脑双端响应式。
 
 ---
 
@@ -29,7 +29,7 @@
 | 后端       | Node.js + Express + Socket.io                        |
 | 数据库     | PostgreSQL                                           |
 | 认证       | JWT + bcryptjs                                       |
-| 文件存储   | 本地磁盘（≤10MB）                                    |
+| 文件存储   | 本地磁盘（≤20MB）                                    |
 
 ---
 
