@@ -966,37 +966,31 @@ export default function ChatWindow() {
     const textRef = useRef('');
     const hasTextRef = useRef(false);
     const inputRowsRef = useRef(1);
-    const measuredLengthRef = useRef(0);
+    const resizeFrameRef = useRef(null);
+    const resizeTimerRef = useRef(null);
     const focusedRef = useRef(false);
     const typingFrameRef = useRef(null);
     const typingTextStateRef = useRef(false);
 
-    const estimateRows = useCallback((value) => {
-      const text = String(value || '');
-      if (!text) return 1;
-      const maxCharsPerLine = 30;
-      return Math.min(6, text.split('\n').reduce((rows, line) => {
-        return rows + Math.max(1, Math.ceil(line.length / maxCharsPerLine));
-      }, 0));
-    }, []);
-
-    const resizeTextarea = useCallback((value, force = false) => {
+    const applyTextareaHeight = useCallback(() => {
       const el = textareaRef.current;
       if (!el) return;
-      const text = String(value || '');
-      const length = text.length;
-      const wrapBoundary = 30;
-      const boundarySlack = 4;
-      const nearWrapBoundary = Math.floor((length + boundarySlack) / wrapBoundary) !== Math.floor((measuredLengthRef.current + boundarySlack) / wrapBoundary);
-      const deletedAcrossBoundary = length < measuredLengthRef.current && Math.floor(length / wrapBoundary) !== Math.floor(measuredLengthRef.current / wrapBoundary);
-      if (!force && !nearWrapBoundary && !deletedAcrossBoundary) return;
-      measuredLengthRef.current = length;
-      const nextRows = estimateRows(value);
+      el.style.height = '21px';
+      const nextRows = Math.max(1, Math.min(6, Math.ceil(el.scrollHeight / 21)));
       if (inputRowsRef.current === nextRows) return;
       inputRowsRef.current = nextRows;
       el.style.height = `${nextRows * 21}px`;
-      el.style.overflowY = nextRows >= 6 ? 'auto' : 'hidden';
-    }, [estimateRows]);
+    }, []);
+
+    const resizeTextarea = useCallback((force = false) => {
+      cancelAnimationFrame(resizeFrameRef.current);
+      clearTimeout(resizeTimerRef.current);
+      const run = () => {
+        resizeFrameRef.current = requestAnimationFrame(applyTextareaHeight);
+      };
+      if (force) run();
+      else resizeTimerRef.current = setTimeout(run, 80);
+    }, [applyTextareaHeight]);
 
     useEffect(() => {
       let cancelled = false;
@@ -1010,7 +1004,7 @@ export default function ChatWindow() {
             hasTextRef.current = nextHasText;
             setHasText(nextHasText);
             if (textareaRef.current) textareaRef.current.value = draft;
-            resizeTextarea(draft, true);
+            resizeTextarea(true);
             localMessageCache.clearDraft(draftChat.type, draftChat.id).catch(() => {});
           })
           .catch(() => {});
@@ -1020,6 +1014,8 @@ export default function ChatWindow() {
       });
       return () => {
         cancelled = true;
+        cancelAnimationFrame(resizeFrameRef.current);
+        clearTimeout(resizeTimerRef.current);
         cancelAnimationFrame(typingFrameRef.current);
         localMessageCache.saveDraft(draftChat.type, draftChat.id, textRef.current).catch(() => {});
         if (typingActiveRef.current) {
@@ -1052,7 +1048,7 @@ export default function ChatWindow() {
         hasTextRef.current = nextHasText;
         setHasText(nextHasText);
       }
-      resizeTextarea(value, shouldForceResize);
+      resizeTextarea(shouldForceResize);
       updateTyping(value, focusedRef.current);
     };
     const keepInputFocused = () => {
@@ -1076,7 +1072,7 @@ export default function ChatWindow() {
       if (textareaRef.current) {
         textareaRef.current.value = '';
       }
-      resizeTextarea('', true);
+      resizeTextarea(true);
       localMessageCache.clearDraft(chatType, chatId).catch(() => {});
       updateTyping('', focusedRef.current, true);
       keepInputFocused();

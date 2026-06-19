@@ -1499,7 +1499,7 @@ html, body {
   outline: none;
   resize: none;
   padding: 0;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 
 .custom-composer-send {
