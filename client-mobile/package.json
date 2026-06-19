@@ -1,0 +1,51 @@
+{
+  "name": "chatapp-client-mobile",
+  "version": "1.0.0",
+  "homepage": "./",
+  "private": true,
+  "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/preferences": "^8.0.1",
+    "@chatui/core": "^3.7.0",
+    "axios": "^1.4.0",
+    "dayjs": "^1.11.9",
+    "http-proxy-middleware": "^2.0.6",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "socket.io-client": "^4.6.1",
+    "zustand": "^4.3.9"
+  },
+  "scripts": {
+    "start": "node scripts/printLan.js && react-scripts start",
+    "build": "react-scripts build",
+    "android:add": "cap add android",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "cap open android"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ],
+    "rules": {
+      "no-unused-vars": "warn",
+      "react-hooks/exhaustive-deps": "warn"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

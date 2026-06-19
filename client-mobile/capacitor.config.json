@@ -1,0 +1,18 @@
+{
+  "appId": "com.chatapp.mobile",
+  "appName": "ChatApp",
+  "webDir": "build",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 300
+    }
+  }
+}

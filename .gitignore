@@ -1,0 +1,75 @@
+# Node
+node_modules/
+*/node_modules/
+
+# Environment
+.env
+.env.*
+*/.env
+*/.env.*
+!*.env.example
+!*/.env.example
+
+# Build output
+client/build/
+client-desktop/build/
+client-desktop/build-desktop-app/
+client-mobile/build/
+dist/
+release/
+out/
+
+# Electron / installer artifacts
+*.exe
+*.msi
+*.blockmap
+*.dmg
+*.AppImage
+
+# Android / Capacitor generated output
+client-mobile/android/.gradle/
+client-mobile/android/.idea/
+client-mobile/android/build/
+client-mobile/android/app/build/
+client-mobile/android/app/release/
+client-mobile/android/app/debug/
+client-mobile/android/app/src/main/assets/
+client-mobile/android/capacitor-cordova-android-plugins/
+client-mobile/android/local.properties
+*.apk
+*.aab
+*.ap_
+
+# Native signing / credentials
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+
+# Uploads
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm-cache/
+*/.npm-cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+.tmp*/
+*.tmp
+*.zip
+*.7z
+*.rar
+
+# Local notes / private deployment docs
+CloudBase云存储.txt

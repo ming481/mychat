@@ -1,0 +1,502 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { useChatStore, useAuthStore } from '../store';
+import { friendAPI, messageAPI, groupAPI } from '../utils/api';
+import { getSocket } from '../hooks/useSocket';
+import SearchModal from './SearchModal';
+import ProfileModal from './ProfileModal';
+import { handleAvatarError, useAvatarSrc } from '../utils/avatar';
+import { localMessageCache } from '../utils/localMessageCache';
+import { alertDialog, confirmDialog } from '../utils/appDialog';
+import { registerBackHandler } from '../utils/backNavigation';
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
+dayjs.locale('zh-cn');
+
+const STATUS_COLOR = { 0: '#c0c8e0', 1: '#44cc77', 2: '#f5a623', 3: '#aab', 4: '#e74c3c' };
+const LOCAL_MESSAGE_LIMIT = 20;
+
+function Avatar({ src, name, size = 40, status }) {
+  const displaySrc = useAvatarSrc(src, name);
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <img src={displaySrc} alt={name}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', display: 'block', background: '#eef' }}
+        onError={e => handleAvatarError(e, name)}
+      />
+      {status !== undefined && (
+        <span style={{
+          position: 'absolute', bottom: 1, right: 1,
+          width: 10, height: 10, borderRadius: '50%',
+          background: STATUS_COLOR[status] || '#ccc',
+          border: '2px solid #fff',
+        }} />
+      )}
+    </div>
+  );
+}
+
+function msgPreview(conv) {
+  if (conv.is_recalled) return '[消息被撤回]';
+  if (conv.last_msg_type === 1 || conv.last_msg_type === 2) return '[文件]';
+  const text = String(conv.last_content || '');
+  return text.length > 14 ? `${text.slice(0, 10)}...` : text;
+}
+
+function timeStr(t) {
+  if (!t) return '';
+  const d = dayjs(t);
+  const now = dayjs();
+  if (now.diff(d, 'hour') < 24) return d.format('HH:mm');
+  if (now.diff(d, 'day') < 7) return d.format('ddd');
+  return d.format('MM/DD');
+}
+
+function ConvItem({ conv, active, onClick, onRemove }) {
+  const inactive = (conv.type === 1 && ['kicked', 'dissolved'].includes(conv.group_state))
+    || (conv.type === 0 && conv.group_state === 'unfriended');
+  const inactiveText = conv.group_state === 'kicked'
+    ? '您已被移出群聊'
+    : conv.group_state === 'dissolved'
+      ? '该群聊已被解散'
+      : '您和对方已解除好友关系';
+  const longPressRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
+  return (
+    <div
+      className={`conv-item${active ? ' active' : ''}${inactive ? ' inactive' : ''}`}
+      onClick={(event) => {
+        if (longPressTriggeredRef.current) {
+          event.preventDefault();
+          return;
+        }
+        onClick();
+      }}
+      onTouchStart={() => {
+        if (!inactive) return;
+        clearTimeout(longPressRef.current);
+        longPressTriggeredRef.current = false;
+        longPressRef.current = setTimeout(() => {
+          longPressTriggeredRef.current = true;
+          onRemove?.(conv);
+          setTimeout(() => {
+            longPressTriggeredRef.current = false;
+          }, 800);
+        }, 600);
+      }}
+      onTouchEnd={() => clearTimeout(longPressRef.current)}
+      onTouchMove={() => {
+        clearTimeout(longPressRef.current);
+        longPressTriggeredRef.current = false;
+      }}
+      onContextMenu={(event) => {
+        if (!inactive) return;
+        event.preventDefault();
+        longPressTriggeredRef.current = false;
+      }}
+    >
+      <Avatar src={conv.target_avatar} name={conv.target_name}
+        status={conv.type === 0 ? (conv.target_status ?? 0) : undefined} size={44} />
+      <div className="conv-info">
+        <div className="conv-row">
+          <span className="conv-name">{conv.target_name || '未知'}</span>
+          <span className="conv-time">{timeStr(conv.last_msg_time)}</span>
+        </div>
+        <div className="conv-row">
+          <span className="conv-preview">{inactive ? inactiveText : msgPreview(conv)}</span>
+          {conv.unread_count > 0 && (
+            <span className="conv-badge">{conv.unread_count > 99 ? '99+' : conv.unread_count}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FriendItem({ friend, status, onClick, onDelete }) {
+  return (
+    <div className="friend-item" onClick={onClick}>
+      <Avatar src={friend.avatar_url} name={friend.nickname} status={status ?? 0} size={40} />
+      <div className="friend-info">
+        <div className="friend-name">{friend.remark || friend.nickname}</div>
+        {friend.signature && <div className="friend-sig">{friend.signature}</div>}
+      </div>
+      <button
+        className="friend-delete-btn"
+        title="删除好友"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(friend);
+        }}
+      >
+        删除
+      </button>
+    </div>
+  );
+}
+
+function GroupItem({ group, onClick }) {
+  return (
+    <div className="friend-item" onClick={onClick}>
+      <Avatar src={group.avatar_url} name={group.name} size={40} />
+      <div className="friend-info">
+        <div className="friend-name">{group.name}</div>
+        <div className="friend-sig">
+          {group.member_count} 名成员
+          {group.role === 2 ? ' · 群主' : group.role === 1 ? ' · 管理员' : ''}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Sidebar() {
+  const { user } = useAuthStore();
+  const {
+    sidebarTab, setSidebarTab,
+    conversations, setConversations,
+    friends, setFriends,
+    groups, setGroups,
+    activeChat, setActiveChat,
+    setMessages,
+    markFriendInactive,
+    friendRequests, setFriendRequests, removeFriendRequest,
+    clearUnread, onlineUsers,
+  } = useChatStore();
+
+  const [showSearch, setShowSearch] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showReqs, setShowReqs] = useState(true);
+  const [reqLoading, setReqLoading] = useState({});
+  const [visualTab, setVisualTab] = useState(sidebarTab);
+
+  useEffect(() => {
+    setVisualTab(sidebarTab);
+  }, [sidebarTab]);
+
+  useEffect(() => {
+    if (!showSearch) return undefined;
+    return registerBackHandler(() => {
+      setShowSearch(false);
+      return true;
+    });
+  }, [showSearch]);
+
+  useEffect(() => {
+    if (!showProfile) return undefined;
+    return registerBackHandler(() => {
+      setShowProfile(false);
+      return true;
+    });
+  }, [showProfile]);
+
+  function switchTab(tab) {
+    setVisualTab(tab);
+    // Update sidebarTab synchronously to avoid visual delay caused by deferred updates
+    setSidebarTab(tab);
+  }
+
+  async function syncConversationToLocal(conv) {
+    if (!conv?.last_message_id) return;
+    const chatType = Number(conv.type);
+    const chatId = Number(conv.target_id);
+    const latestLocalId = Number(await localMessageCache.getLatestMessageId(chatType, chatId).catch(() => 0));
+    const serverLastId = Number(conv.last_message_id || 0);
+    const clearedAfterId = Number(localMessageCache.getClearedAfterId(chatType, chatId) || 0);
+    const needsRecallRefresh = Boolean(conv.is_recalled) && latestLocalId === serverLastId;
+    if (!serverLastId || (!needsRecallRefresh && latestLocalId >= serverLastId) || serverLastId <= clearedAfterId) return;
+
+    const syncAfterId = needsRecallRefresh ? Math.max(0, serverLastId - 1) : Math.max(latestLocalId, clearedAfterId);
+    const missing = syncAfterId
+      ? (chatType === 0 ? await messageAPI.syncPrivate(chatId, syncAfterId, 0) : await messageAPI.syncGroup(chatId, syncAfterId, 0))
+      : Number(conv.unread_count || 0) > 0
+        ? (chatType === 0 ? await messageAPI.unreadPrivate(chatId, 0) : await messageAPI.unreadGroup(chatId, 0))
+        : [];
+    await localMessageCache.saveMessages(chatType, chatId, missing);
+  }
+
+  async function applyLocalLatestToConversations(list) {
+    return Promise.all((list || []).map(async conv => {
+      const latest = (await localMessageCache.getLatestMessages(conv.type, conv.target_id, 1).catch(() => []))[0];
+      if (!latest) return conv;
+      return {
+        ...conv,
+        last_content: latest.content,
+        last_msg_type: latest.type,
+        last_message_id: latest.id,
+        last_msg_time: latest.created_at,
+        updated_at: latest.created_at || conv.updated_at,
+        is_recalled: Boolean(latest.is_recalled),
+      };
+    }));
+  }
+
+  // 用 ref 避免 loadAll 在 useEffect 中因依赖变化重复创建
+  const loadAllRef = useRef(null);
+  loadAllRef.current = async () => {
+    try {
+      const [convData, friendData, groupData, reqData] = await Promise.all([
+        messageAPI.conversations(),
+        friendAPI.list(),
+        groupAPI.list(),
+        friendAPI.requests(),
+      ]);
+      setFriends(friendData);
+      setGroups(groupData);
+      setFriendRequests(reqData);
+      await Promise.allSettled(convData.map(syncConversationToLocal));
+      setConversations(await applyLocalLatestToConversations(convData));
+    } catch (e) {
+      console.error('loadAll error', e);
+    }
+  };
+
+  // 首次加载
+  useEffect(() => {
+    loadAllRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const handleSocketConnected = () => loadAllRef.current();
+    window.addEventListener('chatapp:socket-connected', handleSocketConnected);
+    return () => window.removeEventListener('chatapp:socket-connected', handleSocketConnected);
+  }, []);
+
+  // 定期刷新会话列表（兜底）
+  useEffect(() => {
+    const timer = setInterval(() => {
+      messageAPI.conversations().then(async data => {
+        await Promise.allSettled(data.map(syncConversationToLocal));
+        setConversations(await applyLocalLatestToConversations(data));
+      }).catch(() => {});
+    }, 30000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function prepareLocalMessages(chatType, chatId, conversation) {
+    let targetConversation = conversation;
+    if (!targetConversation) {
+      try {
+        const latestConversations = await messageAPI.conversations();
+        await Promise.allSettled(latestConversations.map(syncConversationToLocal));
+        setConversations(await applyLocalLatestToConversations(latestConversations));
+        targetConversation = latestConversations.find(c => Number(c.type) === chatType && String(c.target_id) === String(chatId));
+      } catch (err) {
+        console.error('refresh conversations before open failed', err);
+      }
+    }
+    const cached = await localMessageCache.getLatestMessages(chatType, chatId, LOCAL_MESSAGE_LIMIT).catch(() => []);
+    const latestLocalId = Number(cached[cached.length - 1]?.id || 0);
+    const serverLastId = Number(targetConversation?.last_message_id || 0);
+
+    if (serverLastId && latestLocalId < serverLastId) {
+      try {
+        await syncConversationToLocal({ type: chatType, target_id: chatId, last_message_id: serverLastId });
+        return localMessageCache.getLatestMessages(chatType, chatId, LOCAL_MESSAGE_LIMIT).catch(() => cached);
+      } catch (err) {
+        console.error('prepare local messages failed', err);
+      }
+    }
+
+    return cached;
+  }
+
+  async function openChat(id, type, name, avatar, conversation = null) {
+    const chatId = Number(id);
+    const chatType = Number(type);
+    const key = `${chatType}_${chatId}`;
+    const sourceConversation = conversation || conversations.find(c => c.type === chatType && String(c.target_id) === String(chatId));
+    const cached = await prepareLocalMessages(chatType, chatId, sourceConversation);
+    setMessages(key, cached);
+    setActiveChat({
+      id: chatId,
+      type: chatType,
+      name,
+      avatar,
+      groupState: sourceConversation?.group_state || 'active',
+      lastMessageId: sourceConversation?.last_message_id || null,
+      lastIsRecalled: Boolean(sourceConversation?.is_recalled),
+    });
+    clearUnread(id, type);
+    messageAPI.markRead(id, type).catch(() => {});
+  }
+
+  async function removeConversationHistory(conv) {
+    if (!await confirmDialog('删除这一条本地聊天记录吗？', { title: '删除聊天记录', confirmText: '删除', tone: 'danger' })) return;
+    const key = `${conv.type}_${conv.target_id}`;
+    useChatStore.getState().removeMessages(key);
+    useChatStore.getState().removeConversation(conv.target_id, conv.type);
+    await localMessageCache.clearConversations([{ type: conv.type, id: conv.target_id, lastMessageId: conv.last_message_id }]).catch(() => {});
+    if (activeChat && String(activeChat.id) === String(conv.target_id) && activeChat.type === conv.type) {
+      setActiveChat(null);
+    }
+  }
+
+  async function handleRequest(req, action) {
+    setReqLoading(p => ({ ...p, [req.id]: true }));
+    try {
+      await friendAPI.handleRequest(req.id, action);
+      removeFriendRequest(req.id);
+      if (action === 'accept') {
+        // 通知对方刷新好友列表
+        const socket = getSocket();
+        if (socket) socket.emit('friend:accepted', { toId: req.user_id });
+        // 自己也刷新
+        const [friendData, groupData] = await Promise.all([friendAPI.list(), groupAPI.list()]);
+        setFriends(friendData);
+        setGroups(groupData);
+        await loadAllRef.current();
+      }
+    } catch (e) { console.error(e); }
+    setReqLoading(p => ({ ...p, [req.id]: false }));
+  }
+
+  async function handleDeleteFriend(friend) {
+    const name = friend.remark || friend.nickname || friend.username || '该好友';
+    if (!await confirmDialog(`确定删除 ${name} 吗？聊天记录会保留，可以之后在聊天记录管理中清理。`, { title: '删除好友', confirmText: '删除', tone: 'danger' })) return;
+    markFriendInactive(friend.id, friend);
+    try {
+      await friendAPI.delete(friend.id);
+    } catch (e) {
+      console.error(e);
+      await alertDialog('删除失败，已重新刷新好友列表', { title: '删除失败', tone: 'danger' });
+      loadAllRef.current();
+    }
+  }
+
+  const totalUnread = conversations.reduce((s, c) => s + (c.unread_count || 0), 0);
+
+  const friendGroups = friends.reduce((acc, f) => {
+    const g = f.group_name || '我的好友';
+    if (!acc[g]) acc[g] = [];
+    acc[g].push(f);
+    return acc;
+  }, {});
+
+  const tabIndex = visualTab === 'chats' ? 0 : visualTab === 'friends' ? 1 : 2;
+
+  return (
+    <div className="sidebar">
+      {/* Header */}
+      <div className="sidebar-header">
+        <button className="sidebar-avatar-btn" onClick={() => setShowProfile(true)} aria-label="打开个人资料">
+          <Avatar src={user?.avatar_url} name={user?.nickname} size={34} status={user?.status ?? 1} />
+        </button>
+        <span className="sidebar-username">{user?.nickname || user?.username}</span>
+        <button className="sidebar-search-btn" onClick={() => setShowSearch(true)} title="搜索/添加好友">🔍</button>
+      </div>
+
+      {/* Tabs */}
+      <div className="sidebar-tabs" style={{ '--tab-index': tabIndex }}>
+        <button className={`sidebar-tab${visualTab === 'chats' ? ' active' : ''}`}
+          onClick={() => switchTab('chats')} title="消息">
+          💬
+          {totalUnread > 0 && <span className="tab-badge">{totalUnread > 99 ? '99+' : totalUnread}</span>}
+        </button>
+        <button className={`sidebar-tab${visualTab === 'friends' ? ' active' : ''}`}
+          onClick={() => switchTab('friends')} title="好友">
+          👥
+          {friendRequests.length > 0 && <span className="tab-badge">{friendRequests.length}</span>}
+        </button>
+        <button className={`sidebar-tab${visualTab === 'groups' ? ' active' : ''}`}
+          onClick={() => switchTab('groups')} title="群聊">
+          🏠
+        </button>
+        {/* Sliding indicator (GPU-accelerated transform) */}
+        <div className="tab-indicator" aria-hidden="true" />
+      </div>
+
+      {/* Content */}
+      <div className="sidebar-content">
+
+        {/* ── 消息列表 ── */}
+        {sidebarTab === 'chats' && (
+          conversations.length === 0
+            ? <div className="sidebar-empty">暂无对话<br /><small>去好友列表开始聊天吧</small></div>
+            : conversations.map(c => (
+              <ConvItem key={`${c.type}_${c.target_id}`} conv={c}
+                active={activeChat && String(activeChat.id) === String(c.target_id) && activeChat.type === c.type}
+                onClick={() => openChat(c.target_id, c.type, c.target_name, c.target_avatar, c)}
+                onRemove={removeConversationHistory}
+              />
+            ))
+        )}
+
+        {/* ── 好友列表 ── */}
+        {sidebarTab === 'friends' && (
+          <>
+            {friendRequests.length > 0 && (
+              <div className="req-section">
+                <div className="sidebar-section-title"
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  onClick={() => setShowReqs(v => !v)}>
+                  新好友申请
+                  <span className="req-count">{friendRequests.length}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 12 }}>{showReqs ? '▲' : '▼'}</span>
+                </div>
+                {showReqs && friendRequests.map(req => (
+                  <div key={req.id} className="friend-req-item">
+                    <Avatar src={req.avatar_url} name={req.nickname || req.username} size={36} />
+                    <div className="friend-req-info">
+                      <span className="friend-req-name">{req.nickname || req.username}</span>
+                      <span className="friend-req-id">@{req.username}</span>
+                    </div>
+                    <div className="friend-req-btns">
+                      <button className="btn-sm btn-primary"
+                        disabled={reqLoading[req.id]}
+                        onClick={() => handleRequest(req, 'accept')}>同意</button>
+                      <button className="btn-sm btn-ghost"
+                        disabled={reqLoading[req.id]}
+                        onClick={() => handleRequest(req, 'reject')}>拒绝</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {friends.length === 0
+              ? <div className="sidebar-empty">还没有好友<br /><small>点击 🔍 搜索添加</small></div>
+              : Object.entries(friendGroups).map(([gname, list]) => (
+                <div key={gname}>
+                  <div className="sidebar-section-title">{gname}（{list.length}）</div>
+                  {list.map(f => (
+                    <FriendItem key={f.id} friend={f}
+                      status={f.status ?? (onlineUsers.has(String(f.id)) ? 1 : 0)}
+                      onClick={() => openChat(f.id, 0, f.remark || f.nickname, f.avatar_url)}
+                      onDelete={handleDeleteFriend}
+                    />
+                  ))}
+                </div>
+              ))
+            }
+          </>
+        )}
+
+        {/* ── 群聊列表 ── */}
+        {sidebarTab === 'groups' && (
+          <>
+            <button className="create-group-btn" onClick={() => setShowSearch(true)}>＋ 创建群聊</button>
+            {groups.length === 0
+              ? <div className="sidebar-empty">还没有群聊<br /><small>点击上方按钮创建</small></div>
+              : groups.map(g => (
+                <GroupItem key={g.id} group={g}
+                  onClick={() => openChat(g.id, 1, g.name, g.avatar_url)}
+                />
+              ))
+            }
+          </>
+        )}
+      </div>
+
+      {showSearch && (
+        <SearchModal onClose={() => setShowSearch(false)} friends={friends}
+          onRefresh={() => loadAllRef.current()} />
+      )}
+      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
+    </div>
+  );
+}

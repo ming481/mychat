@@ -1,0 +1,53 @@
+{
+  "name": "chatapp",
+  "version": "1.0.0",
+  "description": "Full-stack chat application",
+  "main": "electron/main.js",
+  "scripts": {
+    "server": "cd server && npm run dev",
+    "client": "cd client-desktop && npm start",
+    "client:desktop": "cd client-desktop && npm start",
+    "client:mobile": "cd client-mobile && npm start",
+    "install:all": "cd server && npm install && cd ../client-desktop && npm install && cd ../client-mobile && npm install",
+    "build:client": "cd client-desktop && npm run build:electron",
+    "build:desktop": "cd client-desktop && npm run build:electron",
+    "build:mobile": "cd client-mobile && npm run build",
+    "electron:dev": "electron .",
+    "dist:win": "npm run build:client && electron-builder --win nsis",
+    "pack:win": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.chatapp.desktop",
+    "productName": "ChatApp",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "electron-assets/app.ico",
+      "client-desktop/build-desktop-app/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "electron-assets/app.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ChatApp"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.1"
+  }
+}
