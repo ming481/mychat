@@ -961,36 +961,11 @@ export default function ChatWindow() {
   const isTyping = activeChat?.type === 0 && typing[String(activeChat?.id)];
 
   const CustomComposer = useMemo(() => function MobileComposer({ onSend, placeholder, chatType, chatId }) {
-    const [hasText, setHasText] = useState(false);
+    const [text, setText] = useState('');
     const textareaRef = useRef(null);
     const textRef = useRef('');
-    const hasTextRef = useRef(false);
-    const inputRowsRef = useRef(1);
-    const resizeFrameRef = useRef(null);
-    const resizeTimerRef = useRef(null);
     const focusedRef = useRef(false);
-    const typingFrameRef = useRef(null);
     const typingTextStateRef = useRef(false);
-
-    const applyTextareaHeight = useCallback(() => {
-      const el = textareaRef.current;
-      if (!el) return;
-      el.style.height = '21px';
-      const nextRows = Math.max(1, Math.min(6, Math.ceil(el.scrollHeight / 21)));
-      if (inputRowsRef.current === nextRows) return;
-      inputRowsRef.current = nextRows;
-      el.style.height = `${nextRows * 21}px`;
-    }, []);
-
-    const resizeTextarea = useCallback((force = false) => {
-      cancelAnimationFrame(resizeFrameRef.current);
-      clearTimeout(resizeTimerRef.current);
-      const run = () => {
-        resizeFrameRef.current = requestAnimationFrame(applyTextareaHeight);
-      };
-      if (force) run();
-      else resizeTimerRef.current = setTimeout(run, 80);
-    }, [applyTextareaHeight]);
 
     useEffect(() => {
       let cancelled = false;
@@ -1000,12 +975,13 @@ export default function ChatWindow() {
           .then(draft => {
             if (cancelled || !draft) return;
             textRef.current = draft;
-            const nextHasText = /\S/.test(draft);
-            hasTextRef.current = nextHasText;
-            setHasText(nextHasText);
-            if (textareaRef.current) textareaRef.current.value = draft;
-            resizeTextarea(true);
+            setText(draft);
             localMessageCache.clearDraft(draftChat.type, draftChat.id).catch(() => {});
+            requestAnimationFrame(() => {
+              if (!textareaRef.current) return;
+              textareaRef.current.style.height = 'auto';
+              textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+            });
           })
           .catch(() => {});
       };
@@ -1014,9 +990,6 @@ export default function ChatWindow() {
       });
       return () => {
         cancelled = true;
-        cancelAnimationFrame(resizeFrameRef.current);
-        clearTimeout(resizeTimerRef.current);
-        cancelAnimationFrame(typingFrameRef.current);
         localMessageCache.saveDraft(draftChat.type, draftChat.id, textRef.current).catch(() => {});
         if (typingActiveRef.current) {
           const socket = getSocket();
@@ -1026,31 +999,29 @@ export default function ChatWindow() {
           typingActiveRef.current = false;
         }
       };
-    }, [chatType, chatId, resizeTextarea]);
+    }, [chatType, chatId]);
 
     const updateTyping = useCallback((value, isFocused, force = false) => {
-      const hasInputText = /\S/.test(String(value || ''));
+      const hasInputText = Boolean(String(value || '').trim());
       if (!force && typingTextStateRef.current === hasInputText) return;
       typingTextStateRef.current = hasInputText;
-      cancelAnimationFrame(typingFrameRef.current);
-      typingFrameRef.current = requestAnimationFrame(() => handleInputChange(value, isFocused));
+      handleInputChange(value, isFocused);
     }, []);
+
+    useEffect(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    }, [text]);
 
     const handleChange = (event) => {
       const value = event.target.value;
-      const inputType = event.nativeEvent?.inputType || '';
-      const shouldForceResize = event.nativeEvent?.data === '\n'
-        || inputType.includes('insertFromPaste')
-        || inputType.includes('delete');
       textRef.current = value;
-      const nextHasText = /\S/.test(value);
-      if (hasTextRef.current !== nextHasText) {
-        hasTextRef.current = nextHasText;
-        setHasText(nextHasText);
-      }
-      resizeTextarea(shouldForceResize);
+      setText(value);
       updateTyping(value, focusedRef.current);
     };
+
     const keepInputFocused = () => {
       const focus = () => textareaRef.current?.focus({ preventScroll: true });
       requestAnimationFrame(() => {
@@ -1059,24 +1030,18 @@ export default function ChatWindow() {
         setTimeout(focus, 180);
       });
     };
+
     const sendText = () => {
-      const value = textRef.current;
-      if (!value.trim()) return;
+      if (!text.trim()) return;
       if (isReadOnlyChat) return;
-      onSend('text', value);
+      onSend('text', text);
       textRef.current = '';
-      if (hasTextRef.current) {
-        hasTextRef.current = false;
-        setHasText(false);
-      }
-      if (textareaRef.current) {
-        textareaRef.current.value = '';
-      }
-      resizeTextarea(true);
+      setText('');
       localMessageCache.clearDraft(chatType, chatId).catch(() => {});
-      updateTyping('', focusedRef.current, true);
+      updateTyping('', false, true);
       keepInputFocused();
     };
+
     return (
       <div className="custom-composer">
         <div className="custom-composer-input-wrap">
@@ -1084,10 +1049,11 @@ export default function ChatWindow() {
             ref={textareaRef}
             className="custom-composer-input"
             placeholder={isReadOnlyChat ? groupStateText : placeholder}
+            value={text}
             onChange={handleChange}
             onFocus={() => {
               focusedRef.current = true;
-              updateTyping(textRef.current, true, true);
+              updateTyping(text, true, true);
               const viewport = window.visualViewport;
               clearTimeout(keyboardScrollTimerRef.current);
               if (!viewport) {
@@ -1121,14 +1087,14 @@ export default function ChatWindow() {
           />
         </div>
         <button
-          className={`custom-composer-send ${hasText ? 'active' : ''}`}
+          className={`custom-composer-send ${text.trim() ? 'active' : ''}`}
           type="button"
           onTouchStart={event => event.preventDefault()}
           onTouchEnd={event => { event.preventDefault(); sendText(); }}
           onMouseDown={event => event.preventDefault()}
           onPointerDown={event => event.preventDefault()}
           onClick={sendText}
-          disabled={isReadOnlyChat || !hasText}
+          disabled={isReadOnlyChat || !text.trim()}
         >
           {T.send}
         </button>
