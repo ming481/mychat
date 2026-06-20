@@ -28,6 +28,12 @@ function AppLayout() {
     if (!Capacitor.isNativePlatform()) return undefined;
     let removeListener = null;
     CapacitorApp.addListener('backButton', () => {
+      // 优先关闭键盘：如果输入框有焦点，先让它失焦收起键盘
+      const focused = document.activeElement;
+      if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.isContentEditable)) {
+        focused.blur();
+        return;
+      }
       if (runBackHandler()) return;
       const currentChat = useChatStore.getState().activeChat;
       if (currentChat) {
@@ -43,8 +49,32 @@ function AppLayout() {
     };
   }, [setActiveChat]);
 
-  // Listen for focus events to detect soft keyboard on mobile.
+  // Listen for focus events and visualViewport resize to detect soft keyboard on mobile.
   useEffect(() => {
+    const vp = window.visualViewport;
+    let vpHeight = vp?.height;
+
+    function syncKeyboardOpen() {
+      if (!vp) return;
+      const prev = vpHeight;
+      vpHeight = vp.height;
+      const diff = vpHeight - prev; // >0 means keyboard dismissed, <0 means opened
+      if (diff > 100) {
+        // Keyboard was dismissed (e.g. Android IME back), blur any focused input
+        const focused = document.activeElement;
+        if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.isContentEditable)) {
+          focused.blur();
+        }
+        document.documentElement.classList.remove('keyboard-open');
+      } else if (diff < -100) {
+        // Keyboard opened, ensure class is set
+        const focused = document.activeElement;
+        if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.isContentEditable)) {
+          document.documentElement.classList.add('keyboard-open');
+        }
+      }
+    }
+
     function onFocusIn(e) {
       const tag = e.target && e.target.tagName && e.target.tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
@@ -52,7 +82,6 @@ function AppLayout() {
       }
     }
     function onFocusOut(e) {
-      // slight delay to allow focus to move between inputs
       setTimeout(() => {
         const active = document.activeElement;
         const atag = active && active.tagName && active.tagName.toLowerCase();
@@ -61,11 +90,14 @@ function AppLayout() {
         }
       }, 50);
     }
+
     window.addEventListener('focusin', onFocusIn);
     window.addEventListener('focusout', onFocusOut);
+    vp?.addEventListener('resize', syncKeyboardOpen);
     return () => {
       window.removeEventListener('focusin', onFocusIn);
       window.removeEventListener('focusout', onFocusOut);
+      vp?.removeEventListener('resize', syncKeyboardOpen);
     };
   }, []);
 

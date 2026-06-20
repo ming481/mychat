@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
+import { shallow } from 'zustand/shallow';
 import { useAuthStore, useChatStore } from '../store';
 import { fileAPI, groupAPI, messageAPI, withAssetVersion } from '../utils/api';
 import { getSocket } from '../hooks/useSocket';
@@ -146,8 +147,16 @@ export default function ChatWindow() {
     messages: allMessages,
     setMessages, prependMessages, addMessage, replaceMessage,
     upsertConversation,
-    typing,
-  } = useChatStore();
+  } = useChatStore(state => ({
+    activeChat: state.activeChat,
+    setActiveChat: state.setActiveChat,
+    messages: state.messages,
+    setMessages: state.setMessages,
+    prependMessages: state.prependMessages,
+    addMessage: state.addMessage,
+    replaceMessage: state.replaceMessage,
+    upsertConversation: state.upsertConversation,
+  }), shallow);
 
   const [, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -958,12 +967,13 @@ export default function ChatWindow() {
     );
   }
 
-  const isTyping = activeChat?.type === 0 && typing[String(activeChat?.id)];
+  const isTyping = useChatStore(state => state.activeChat?.type === 0 && state.typing[String(state.activeChat?.id)]);
 
   const CustomComposer = useMemo(() => function MobileComposer({ onSend, placeholder, chatType, chatId }) {
-    const [text, setText] = useState('');
+    const [hasText, setHasText] = useState(false);
     const textareaRef = useRef(null);
     const textRef = useRef('');
+    const heightRafRef = useRef(null);
     const focusedRef = useRef(false);
     const typingTextStateRef = useRef(false);
 
@@ -975,7 +985,8 @@ export default function ChatWindow() {
           .then(draft => {
             if (cancelled || !draft) return;
             textRef.current = draft;
-            setText(draft);
+            textareaRef.current.value = draft;
+            setHasText(true);
             localMessageCache.clearDraft(draftChat.type, draftChat.id).catch(() => {});
             requestAnimationFrame(() => {
               if (!textareaRef.current) return;
@@ -1001,6 +1012,8 @@ export default function ChatWindow() {
       };
     }, [chatType, chatId]);
 
+    useEffect(() => () => cancelAnimationFrame(heightRafRef.current), []);
+
     const updateTyping = useCallback((value, isFocused, force = false) => {
       const hasInputText = Boolean(String(value || '').trim());
       if (!force && typingTextStateRef.current === hasInputText) return;
@@ -1008,18 +1021,17 @@ export default function ChatWindow() {
       handleInputChange(value, isFocused);
     }, []);
 
-    useEffect(() => {
-      const el = textareaRef.current;
-      if (!el) return;
-      el.style.height = 'auto';
-      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-    }, [text]);
-
     const handleChange = (event) => {
       const value = event.target.value;
       textRef.current = value;
-      setText(value);
+      setHasText(Boolean(value.trim()));
       updateTyping(value, focusedRef.current);
+      cancelAnimationFrame(heightRafRef.current);
+      heightRafRef.current = requestAnimationFrame(() => {
+        if (!textareaRef.current) return;
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+      });
     };
 
     const keepInputFocused = () => {
@@ -1032,11 +1044,13 @@ export default function ChatWindow() {
     };
 
     const sendText = () => {
-      if (!text.trim()) return;
+      const val = textRef.current;
+      if (!val.trim()) return;
       if (isReadOnlyChat) return;
-      onSend('text', text);
+      onSend('text', val);
       textRef.current = '';
-      setText('');
+      textareaRef.current.value = '';
+      setHasText(false);
       localMessageCache.clearDraft(chatType, chatId).catch(() => {});
       updateTyping('', false, true);
       keepInputFocused();
@@ -1049,11 +1063,10 @@ export default function ChatWindow() {
             ref={textareaRef}
             className="custom-composer-input"
             placeholder={isReadOnlyChat ? groupStateText : placeholder}
-            value={text}
             onChange={handleChange}
             onFocus={() => {
               focusedRef.current = true;
-              updateTyping(text, true, true);
+              updateTyping(textRef.current, true, true);
               const viewport = window.visualViewport;
               clearTimeout(keyboardScrollTimerRef.current);
               if (!viewport) {
@@ -1087,14 +1100,14 @@ export default function ChatWindow() {
           />
         </div>
         <button
-          className={`custom-composer-send ${text.trim() ? 'active' : ''}`}
+          className={`custom-composer-send ${hasText ? 'active' : ''}`}
           type="button"
           onTouchStart={event => event.preventDefault()}
           onTouchEnd={event => { event.preventDefault(); sendText(); }}
           onMouseDown={event => event.preventDefault()}
           onPointerDown={event => event.preventDefault()}
           onClick={sendText}
-          disabled={isReadOnlyChat || !text.trim()}
+          disabled={isReadOnlyChat || !hasText}
         >
           {T.send}
         </button>

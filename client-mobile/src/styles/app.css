@@ -185,7 +185,7 @@ html, body {
   transition: all var(--transition);
   box-shadow: 0 4px 16px rgba(74,122,245,0.3);
 }
-.auth-btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(74,122,245,0.4); }
+@media (hover: hover) { .auth-btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(74,122,245,0.4); } }
 .auth-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; box-shadow: none; }
 
 /* App Dialog */
@@ -331,7 +331,7 @@ html, body {
   cursor: pointer; font-size: 17px; padding: 5px 8px;
   border-radius: 8px; transition: background var(--transition);
 }
-.sidebar-search-btn:hover { background: var(--bg-hover); color: var(--accent); }
+@media (hover: hover) { .sidebar-search-btn:hover { background: var(--bg-hover); color: var(--accent); } }
 
 .sidebar-tabs {
   display: flex;
@@ -397,7 +397,7 @@ html, body {
   transition: background var(--transition);
   border-bottom: 1px solid transparent;
 }
-.conv-item:hover { background: var(--bg-hover); }
+@media (hover: hover) { .conv-item:hover { background: var(--bg-hover); } }
 .conv-item.active { background: var(--bg-active); border-left: 3px solid var(--accent); padding-left: 11px; }
 
 .conv-info { flex: 1; min-width: 0; }
@@ -419,7 +419,7 @@ html, body {
   padding: 9px 14px; cursor: pointer;
   transition: background var(--transition);
 }
-.friend-item:hover { background: var(--bg-hover); }
+@media (hover: hover) { .friend-item:hover { background: var(--bg-hover); } }
 .friend-info { flex: 1; min-width: 0; }
 .friend-name { font-size: 14px; font-weight: 500; color: var(--text-primary); }
 .friend-sig { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
@@ -433,11 +433,8 @@ html, body {
   font-size: 12px;
   cursor: pointer;
 }
-.friend-delete-btn:hover,
-.friend-delete-btn:focus {
-  background: #fff5f5;
-  border-color: rgba(217,48,37,0.45);
-}
+@media (hover: hover) { .friend-delete-btn:hover { background: #fff5f5; border-color: rgba(217,48,37,0.45); } }
+.friend-delete-btn:focus { background: #fff5f5; border-color: rgba(217,48,37,0.45); }
 
 .req-section { border-bottom: 1px solid var(--border); background: #fffbf0; }
 .req-count {
@@ -464,7 +461,7 @@ html, body {
   cursor: pointer; font-size: 13px; font-family: var(--font); font-weight: 600;
   transition: all var(--transition);
 }
-.create-group-btn:hover { background: var(--accent); color: #fff; border-style: solid; }
+@media (hover: hover) { .create-group-btn:hover { background: var(--accent); color: #fff; border-style: solid; } }
 
 /* ─── Buttons ────────────────────────────────────────────────── */
 .btn-sm {
@@ -473,10 +470,10 @@ html, body {
   transition: all var(--transition);
 }
 .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 2px 6px rgba(74,122,245,0.25); }
-.btn-primary:hover { background: var(--accent-hover); }
+@media (hover: hover) { .btn-primary:hover { background: var(--accent-hover); } }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-ghost { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border); }
-.btn-ghost:hover { background: var(--bg-hover); }
+@media (hover: hover) { .btn-ghost:hover { background: var(--bg-hover); } }
 
 /* ─── Chat Window ─────────────────────────────────────────────── */
 .chat-window { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
@@ -503,7 +500,7 @@ html, body {
 }
 .Navbar-title { color: var(--text-primary) !important; font-size: 15px !important; font-weight: 700 !important; }
 .Navbar-left-btn svg, .Navbar-right-btn svg { color: var(--text-secondary) !important; }
-.Navbar-left-btn:hover, .Navbar-right-btn:hover { background: var(--bg-hover) !important; }
+@media (hover: hover) { .Navbar-left-btn:hover, .Navbar-right-btn:hover { background: var(--bg-hover) !important; } }
 
 .MessageContainer { background: var(--bg-primary) !important; padding: 8px 0 !important; }
 
@@ -559,11 +556,11 @@ html, body {
   border-radius: 50% !important;
   box-shadow: 0 2px 8px rgba(74,122,245,0.3) !important;
 }
-.Btn--primary:hover { background: var(--accent-hover) !important; }
+@media (hover: hover) { .Btn--primary:hover { background: var(--accent-hover) !important; } }
 
 .Toolbar { background: #fff !important; border-top: 1px solid var(--border) !important; }
 .ToolbarItem { color: var(--text-secondary) !important; }
-.ToolbarItem:hover { color: var(--accent) !important; }
+@media (hover: hover) { .ToolbarItem:hover { color: var(--accent) !important; } }
 
 /* ─── Message types ──────────────────────────────────────────── */
 .msg-recalled {
@@ -597,10 +594,12 @@ html, body {
   box-shadow: 0 2px 8px rgba(31,45,61,0.06);
   contain: layout paint;
 }
+@media (hover: hover) {
 .msg-file:hover {
   background: #fbfcff;
   border-color: rgba(74,122,245,0.28);
   box-shadow: 0 4px 14px rgba(31,45,61,0.10);
+}
 }
 .msg-file-icon {
   width: 40px;
@@ -637,7 +636,7 @@ html, body {
   justify-content: center;
   box-shadow: 0 1px 4px rgba(0,0,0,0.12);
 }
-.msg-download-btn:hover { background: var(--accent-light); }
+@media (hover: hover) { .msg-download-btn:hover { background: var(--accent-light); } }
 .msg-file-download {
   width: 34px;
   height: 34px;
@@ -654,11 +653,8 @@ html, body {
   flex-shrink: 0;
   transition: background var(--transition), transform var(--transition);
 }
-.msg-file-download:hover,
-.msg-file-download:active {
-  background: var(--accent-light);
-  transform: translateY(-1px);
-}
+@media (hover: hover) { .msg-file-download:hover { background: var(--accent-light); transform: translateY(-1px); } }
+.msg-file-download:active { background: var(--accent-light); transform: translateY(-1px); }
 .msg-image-message {
   display: flex;
   max-width: min(72vw, 340px);
@@ -720,7 +716,7 @@ html, body {
   cursor: pointer; font-size: 14px; padding: 2px 5px;
   border-radius: 4px; transition: color var(--transition);
 }
-.reply-bar-close:hover { color: var(--text-primary); }
+@media (hover: hover) { .reply-bar-close:hover { color: var(--text-primary); } }
 
 /* ─── Message reply preview ──────────────────────────────────── */
 .msg-reply-preview {
@@ -763,9 +759,9 @@ html, body {
   font-family: var(--font); text-align: left;
   cursor: pointer; transition: background var(--transition);
 }
-.context-menu-item:hover { background: var(--bg-hover); }
+@media (hover: hover) { .context-menu-item:hover { background: var(--bg-hover); } }
 .context-menu-item.danger { color: #d93025; }
-.context-menu-item.danger:hover { background: #fff5f5; }
+@media (hover: hover) { .context-menu-item.danger:hover { background: #fff5f5; } }
 
 /* ─── Modals ─────────────────────────────────────────────────── */
 .modal-overlay {
@@ -798,7 +794,7 @@ html, body {
   font-size: 16px; cursor: pointer; padding: 4px 8px;
   border-radius: 6px; transition: all var(--transition);
 }
-.modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+@media (hover: hover) { .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); } }
 
 .modal-tabs {
   display: flex; gap: 4px;
@@ -825,7 +821,7 @@ html, body {
   cursor: pointer; font-family: var(--font); font-weight: 700; font-size: 14px;
   transition: background var(--transition);
 }
-.search-bar button:hover { background: var(--accent-hover); }
+@media (hover: hover) { .search-bar button:hover { background: var(--accent-hover); } }
 .search-bar button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .search-msg { padding: 2px 20px 8px; font-size: 13px; color: var(--text-muted); }
@@ -835,7 +831,7 @@ html, body {
   padding: 9px 10px; border-radius: 10px;
   transition: background var(--transition);
 }
-.search-result-item:hover { background: var(--bg-hover); }
+@media (hover: hover) { .search-result-item:hover { background: var(--bg-hover); } }
 .search-user-info { flex: 1; }
 .search-user-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .search-user-id { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
@@ -933,7 +929,7 @@ html, body {
   color: #fff; font-size: 11px; opacity: 0;
   border-radius: 50%; transition: opacity var(--transition);
 }
-.profile-avatar-label:hover .profile-avatar-overlay { opacity: 1; }
+@media (hover: hover) { .profile-avatar-label:hover .profile-avatar-overlay { opacity: 1; } }
 .profile-username { margin-top: 8px; font-size: 12px; color: var(--text-muted); }
 .profile-status-picker { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; justify-content: center; }
 .status-btn {
@@ -959,7 +955,7 @@ html, body {
   padding: 8px 12px; cursor: pointer;
   transition: background var(--transition); font-size: 13px; color: var(--text-primary);
 }
-.friend-select-item:hover { background: var(--bg-hover); }
+@media (hover: hover) { .friend-select-item:hover { background: var(--bg-hover); } }
 .friend-select-item input { accent-color: var(--accent); width: 15px; height: 15px; }
 
 /* ─── Group Detail Panel ─────────────────────────────────────── */
@@ -985,7 +981,7 @@ html, body {
   font-size: 15px; cursor: pointer; padding: 4px 7px;
   border-radius: 6px; transition: all var(--transition);
 }
-.gdp-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+@media (hover: hover) { .gdp-close:hover { background: var(--bg-hover); color: var(--text-primary); } }
 
 .gdp-body { flex: 1; overflow-y: auto; }
 .gdp-group-info {
@@ -1006,7 +1002,7 @@ html, body {
   color: var(--accent); font-size: 12px; cursor: pointer;
   padding: 2px 7px; border-radius: 4px; font-family: var(--font); font-weight: 600;
 }
-.gdp-edit-btn:hover { background: var(--accent-light); }
+@media (hover: hover) { .gdp-edit-btn:hover { background: var(--accent-light); } }
 .gdp-announce-text { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
 .gdp-announce-input {
   width: 100%; padding: 8px 10px;
@@ -1033,14 +1029,14 @@ html, body {
   color: var(--text-secondary); cursor: pointer; font-family: var(--font);
   transition: all var(--transition);
 }
-.gdp-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+@media (hover: hover) { .gdp-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); } }
 .gdp-action-btn.danger { color: #d93025; border-color: #ffc0c0; }
-.gdp-action-btn.danger:hover { background: #fff5f5; }
+@media (hover: hover) { .gdp-action-btn.danger:hover { background: #fff5f5; } }
 
 .gdp-invite-box { background: var(--bg-tertiary); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); }
 .gdp-invite-list { max-height: 140px; overflow-y: auto; }
 .gdp-invite-item { display: flex; align-items: center; gap: 8px; padding: 5px 4px; cursor: pointer; border-radius: 6px; font-size: 13px; }
-.gdp-invite-item:hover { background: var(--bg-hover); }
+@media (hover: hover) { .gdp-invite-item:hover { background: var(--bg-hover); } }
 .gdp-invite-item input { accent-color: var(--accent); }
 .gdp-empty { font-size: 12px; color: var(--text-muted); padding: 8px 4px; }
 
@@ -1053,7 +1049,7 @@ html, body {
   font-size: 13px; font-family: var(--font); font-weight: 600;
   cursor: pointer; transition: all var(--transition);
 }
-.gdp-danger-btn:hover { background: #ffe5e5; border-color: #f44; }
+@media (hover: hover) { .gdp-danger-btn:hover { background: #ffe5e5; border-color: #f44; } }
 
 /* 群信息编辑样式 */
 .gdp-avatar-edit-overlay {
@@ -1063,7 +1059,7 @@ html, body {
   border-radius: 50%; color: #fff; font-size: 14px;
   opacity: 0; cursor: pointer; transition: opacity var(--transition);
 }
-.gdp-group-info:hover .gdp-avatar-edit-overlay { opacity: 1; }
+@media (hover: hover) { .gdp-group-info:hover .gdp-avatar-edit-overlay { opacity: 1; } }
 
 .gdp-name-row { display: flex; align-items: center; gap: 6px; }
 .gdp-name-edit-btn {
@@ -1071,7 +1067,7 @@ html, body {
   font-size: 14px; cursor: pointer; padding: 2px 4px;
   border-radius: 4px; transition: color var(--transition);
 }
-.gdp-name-edit-btn:hover { color: var(--accent); background: var(--accent-light); }
+@media (hover: hover) { .gdp-name-edit-btn:hover { color: var(--accent); background: var(--accent-light); } }
 
 .gdp-name-edit-box { width: 100%; }
 .gdp-name-input {
@@ -1221,7 +1217,7 @@ html, body {
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #c0c8e0; }
+@media (hover: hover) { ::-webkit-scrollbar-thumb:hover { background: #c0c8e0; } }
 
 /* ─── 自定义聊天导航栏（替换 ChatUI 默认 Navbar）──────────── */
 .chat-window {
@@ -1261,10 +1257,12 @@ html, body {
   white-space: nowrap;
   flex-shrink: 0;
 }
+@media (hover: hover) {
 .chat-back-btn:hover {
   background: var(--bg-hover);
   color: var(--accent);
   border-color: var(--accent);
+}
 }
 
 .chat-navbar-title {
@@ -1299,7 +1297,7 @@ html, body {
   transition: all var(--transition);
   flex-shrink: 0;
 }
-.chat-detail-btn:hover { background: var(--bg-hover); color: var(--accent); }
+@media (hover: hover) { .chat-detail-btn:hover { background: var(--bg-hover); color: var(--accent); } }
 
 /* 消息区域占满剩余高度 */
 .chat-messages-area {
@@ -1525,8 +1523,10 @@ html, body {
   box-shadow: 0 2px 8px rgba(74,122,245,0.3);
 }
 
+@media (hover: hover) {
 .custom-composer-send.active:hover {
   background: var(--accent-hover);
+}
 }
 
 .custom-composer-upload {
@@ -1545,10 +1545,12 @@ html, body {
   color: var(--text-secondary);
 }
 
+@media (hover: hover) {
 .custom-composer-upload:hover {
   background: var(--accent-light);
   border-color: var(--accent);
   color: var(--accent);
+}
 }
 
 
