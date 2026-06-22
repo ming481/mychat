@@ -1640,3 +1640,61 @@ html, body {
   background: rgba(231,76,60,0.08);
 }
 .settings-manager-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─── Desktop Image Viewer ─────────────────────────────────── */
+.desktop-image-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: dim-in 0.15s ease;
+}
+@keyframes dim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.desktop-image-viewer-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 85vw;
+  max-height: 85vh;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+.desktop-image-viewer-img {
+  display: block;
+  max-width: 85vw;
+  max-height: 85vh;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.desktop-image-viewer-close {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  z-index: 5001;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.desktop-image-viewer-close:hover { background: rgba(0, 0, 0, 0.6); }

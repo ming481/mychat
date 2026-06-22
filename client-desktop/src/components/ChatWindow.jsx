@@ -9,6 +9,7 @@ import { fallbackAvatar } from '../utils/avatar';
 import { localMessageCache } from '../utils/localMessageCache';
 import ContextMenu from './ContextMenu';
 import GroupDetailPanel from './GroupDetailPanel';
+import ImageViewer from './ImageViewer';
 
 dayjs.locale('zh-cn');
 
@@ -115,6 +116,7 @@ export default function ChatWindow() {
   const [replyTo, setReplyTo] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [groupInfo, setGroupInfo] = useState(null);
+  const [viewerUrl, setViewerUrl] = useState(null);
   const [avatarMap, setAvatarMap] = useState({});
   const [positionedKey, setPositionedKey] = useState(null);
 
@@ -709,7 +711,7 @@ export default function ChatWindow() {
       <div onContextMenu={event => handleContextMenu(event, msg)}>
         {replyBlock}
         {isExpired ? <div className="msg-expired">{T.imageExpired}</div> : (
-          <div className="msg-image-wrap aspect-square" onClick={() => window.open(msg.content.picUrl, '_blank')}>
+          <div className="msg-image-wrap aspect-square" onClick={() => setViewerUrl(msg.content.picUrl)}>
             <img src={msg.content.picUrl} alt="" className="msg-image" loading="lazy" onLoad={handleImageLoad} onError={event => { event.currentTarget.style.display = 'none'; }} />
             <button className="msg-download-btn" type="button" onClick={(event) => { event.stopPropagation(); directDownload(msg.content.picUrl, msg.content.picUrl.split('/').pop() || 'image'); }} title={T.downloadImage}>↓</button>
           </div>
@@ -959,6 +961,8 @@ export default function ChatWindow() {
           onUpdated={() => groupAPI.get(activeChat.id).then(setGroupInfo).catch(() => {})}
         />
       )}
+
+      <ImageViewer url={viewerUrl} onClose={() => setViewerUrl(null)} />
     </div>
   );
 }
