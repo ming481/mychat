@@ -88,6 +88,10 @@ export function useSocket() {
     });
     socket.on('connect_error', (e) => console.error('Socket error:', e.message));
     socket.on('disconnect', (r) => console.warn('Socket disconnected:', r));
+    socket.on('kicked', ({ reason }) => {
+      console.warn('Kicked:', reason);
+      useAuthStore.getState().logout();
+    });
 
     socket.on('online:list', (list) => useChatStore.getState().setOnlineUsers(list));
     socket.on('user:status', ({ userId, status }) => {

@@ -71,5 +71,8 @@ Thumbs.db
 *.7z
 *.rar
 
+# Claude
+CLAUDE.md
+
 # Local notes / private deployment docs
 CloudBase云存储.txt

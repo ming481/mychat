@@ -9,6 +9,12 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const setAuth = useAuthStore(s => s.setAuth);
 
+  const handleFocus = (e) => {
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -55,6 +61,7 @@ export default function AuthPage() {
                 placeholder="设置昵称（可选）"
                 value={form.nickname}
                 onChange={e => setForm({ ...form, nickname: e.target.value })}
+                onFocus={handleFocus}
               />
             </div>
           )}
@@ -65,6 +72,7 @@ export default function AuthPage() {
               placeholder="请输入用户名"
               value={form.username}
               onChange={e => setForm({ ...form, username: e.target.value })}
+              onFocus={handleFocus}
               required
               autoComplete="username"
             />
@@ -76,6 +84,7 @@ export default function AuthPage() {
               placeholder={mode === 'register' ? '至少6位字符' : '请输入密码'}
               value={form.password}
               onChange={e => setForm({ ...form, password: e.target.value })}
+              onFocus={handleFocus}
               required
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />

@@ -111,8 +111,22 @@ function initSocket(io) {
     const userId = String(socket.userId);
     console.log(`[Socket] User ${userId} connected: ${socket.id}`);
 
-    if (!onlineUsers.has(userId)) onlineUsers.set(userId, new Set());
-    onlineUsers.get(userId).add(socket.id);
+    // 如果该用户已有活跃连接，踢掉旧的，以新连接为准
+    const existingSockets = onlineUsers.get(userId);
+    if (existingSockets && existingSockets.size > 0) {
+      onlineUsers.set(userId, new Set([socket.id]));
+      for (const sid of existingSockets) {
+        const oldSocket = io.sockets.sockets.get(sid);
+        if (oldSocket) {
+          oldSocket.emit('kicked', { reason: '账号已在其他设备登录' });
+          oldSocket.disconnect(true);
+        }
+      }
+      console.log(`[Socket] Kicked ${existingSockets.size} old connection(s) for user ${userId}`);
+    } else {
+      if (!onlineUsers.has(userId)) onlineUsers.set(userId, new Set());
+      onlineUsers.get(userId).add(socket.id);
+    }
 
     const statusResult = await pool.query(
       'UPDATE users SET status = COALESCE(NULLIF(desired_status, 0), 1) WHERE id = $1 RETURNING status',
