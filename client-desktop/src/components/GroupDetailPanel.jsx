@@ -4,6 +4,7 @@ import { useChatStore } from '../store';
 import { fallbackAvatar, handleAvatarError } from '../utils/avatar';
 import { getSocket } from '../hooks/useSocket';
 import { localMessageCache } from '../utils/localMessageCache';
+import { confirmDialog } from '../utils/appDialog';
 
 const ROLE_LABEL = { 2: '群主', 1: '管理员', 0: '' };
 
@@ -54,7 +55,7 @@ export default function GroupDetailPanel({ group, currentUserId, onClose, onUpda
   }
 
   async function kickMember(userId) {
-    if (!window.confirm('确认踢出该成员？')) return;
+    if (!await confirmDialog('确认踢出该成员？', { title: '移出成员', confirmText: '踢出', tone: 'danger' })) return;
     try {
       await groupAPI.kick(group.id, userId);
       setMsg('已踢出');
@@ -71,7 +72,7 @@ export default function GroupDetailPanel({ group, currentUserId, onClose, onUpda
   }
 
   async function leaveGroup() {
-    if (!window.confirm('确认退出该群聊？')) return;
+    if (!await confirmDialog('确认退出该群聊？退出后会删除本地该群聊记录。', { title: '退出群聊', confirmText: '退出', tone: 'danger' })) return;
     try {
       await groupAPI.leave(group.id);
       await removeGroupLocally();
@@ -80,7 +81,7 @@ export default function GroupDetailPanel({ group, currentUserId, onClose, onUpda
   }
 
   async function dissolveGroup() {
-    if (!window.confirm('确认解散该群聊？此操作不可撤销！')) return;
+    if (!await confirmDialog('确认解散该群聊？此操作不可撤销！', { title: '解散群聊', confirmText: '解散', tone: 'danger' })) return;
     try {
       await groupAPI.dissolve(group.id);
       markDissolvedLocally();

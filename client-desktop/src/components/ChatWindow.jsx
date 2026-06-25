@@ -10,6 +10,7 @@ import { localMessageCache } from '../utils/localMessageCache';
 import ContextMenu from './ContextMenu';
 import GroupDetailPanel from './GroupDetailPanel';
 import ImageViewer from './ImageViewer';
+import { alertDialog } from '../utils/appDialog';
 
 dayjs.locale('zh-cn');
 
@@ -550,7 +551,7 @@ export default function ChatWindow() {
     if (!socket?.connected) {
       socket = await waitForSocket(socket);
       if (!socket?.connected) {
-        alert(T.disconnected);
+        alertDialog(T.disconnected, { title: '提示' });
         return;
       }
     }
@@ -602,7 +603,7 @@ export default function ChatWindow() {
           });
         } else {
           replaceMessage(key, tempId, { ...optimisticMsg, status: -1, content: `${val}\n(${T.sendFail})` });
-          alert(T.sendFail);
+          alertDialog(T.sendFail, { title: '发送失败' });
         }
       }
     );
@@ -614,7 +615,7 @@ export default function ChatWindow() {
     if (!chat || !file || !socket?.connected) return;
     if (READONLY_STATES.includes(chat.groupState)) return;
     if (file.size > 20 * 1024 * 1024) {
-      alert(T.uploadBig);
+      alertDialog(T.uploadBig, { title: '文件过大' });
       return;
     }
     const key = convKey(chat.type, chat.id);
@@ -654,7 +655,7 @@ export default function ChatWindow() {
     } catch (err) {
       console.error('upload failed', err);
       setUploadPct(null);
-      alert(T.uploadFail);
+      alertDialog(T.uploadFail, { title: '上传失败' });
     }
   }, [addMessage, upsertConversation]);
 

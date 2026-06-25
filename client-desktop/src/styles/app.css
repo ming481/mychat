@@ -773,6 +773,114 @@ html, body {
 }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 0 0; }
 
+/* ─── App Dialog ─────────────────────────────────────────────── */
+.app-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 22px;
+  background: rgba(18, 24, 42, 0.38);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.app-dialog {
+  width: min(100%, 340px);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(20, 30, 60, 0.26);
+  padding: 18px;
+  animation: app-dialog-in 0.18s ease;
+}
+@keyframes app-dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.app-dialog-head {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.app-dialog-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 800;
+}
+.app-dialog-icon.danger {
+  color: #e14b4b;
+  background: rgba(225, 75, 75, 0.11);
+}
+.app-dialog h3 {
+  margin: 1px 0 7px;
+  font-size: 17px;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+.app-dialog p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.app-dialog-input {
+  width: 100%;
+  height: 42px;
+  margin-top: 16px;
+  padding: 0 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font: 15px var(--font);
+  outline: none;
+}
+.app-dialog-input:focus {
+  border-color: var(--accent);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(74, 122, 245, 0.12);
+}
+.app-dialog-actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+.app-dialog-btn {
+  height: 42px;
+  border: none;
+  border-radius: 11px;
+  font: 700 14px var(--font);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.app-dialog-btn.ghost {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+.app-dialog-btn.primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(74, 122, 245, 0.25);
+}
+.app-dialog-btn.primary.danger {
+  background: #e14b4b;
+  box-shadow: 0 8px 18px rgba(225, 75, 75, 0.22);
+}
+
 /* ─── Search ─────────────────────────────────────────────────── */
 .search-bar { display: flex; gap: 8px; padding: 14px 20px; }
 .search-bar input {
@@ -1592,41 +1700,6 @@ html, body {
 .settings-conversation-item:hover { background: var(--bg-hover); }
 .settings-conversation-item span { color: var(--text-muted); font-size: 12px; }
 .settings-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
-.settings-sync-box { max-width: 400px; }
-.settings-sync-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 16px;
-}
-.settings-sync-body p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-.settings-sync-password {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-.settings-sync-password input {
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 10px;
-  font: 13px var(--font);
-  color: var(--text-primary);
-  background: #fff;
-  outline: none;
-}
-.settings-sync-password input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.12);
-}
 .settings-manager-actions {
   display: flex;
   justify-content: flex-end;

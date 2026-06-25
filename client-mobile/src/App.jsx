@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { SplashScreen } from '@capacitor/splash-screen';
 import '@chatui/core/dist/index.css';
 import './styles/app.css';
 import { useAuthStore, useChatStore } from './store';
 import { useSocket } from './hooks/useSocket';
-import { authAPI } from './utils/api';
+import { authAPI, setBootstrapping, consumePendingKickMessage } from './utils/api';
+import { alertDialog } from './utils/appDialog';
 import { ensureMobileStorageDirs } from './utils/chatSettings';
 import { runBackHandler } from './utils/backNavigation';
 import AuthPage from './pages/AuthPage';
@@ -51,6 +53,9 @@ function AppLayout() {
 
   // Listen for focus events and visualViewport resize to detect soft keyboard on mobile.
   useEffect(() => {
+    // 清除可能残留的 keyboard-open 类，避免跨组件挂载周期状态污染
+    document.documentElement.classList.remove('keyboard-open');
+
     const vp = window.visualViewport;
     let vpHeight = vp?.height;
 
@@ -119,47 +124,52 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    setBootstrapping(true);
 
     async function bootstrapAuth() {
       ensureMobileStorageDirs().catch(err => console.error('ensure mobile storage dirs failed', err));
 
-      let { token: activeToken, user: activeUser } = useAuthStore.getState();
+      let { token: activeToken } = useAuthStore.getState();
       if (!activeToken) {
         const nativeAuth = await hydrateFromNative();
         activeToken = nativeAuth?.token;
-        activeUser = nativeAuth?.user;
       }
 
-      if (!activeToken) {
-        if (!cancelled) setChecking(false);
-        return;
+      if (activeToken) {
+        try {
+          const nextUser = await authAPI.me();
+          if (!cancelled) setAuth(activeToken, nextUser);
+        } catch {
+          if (!cancelled) logout();
+        }
       }
-
-      if (activeUser && !cancelled) setChecking(false);
-
-      authAPI.me()
-      .then(nextUser => {
-        setAuth(activeToken, nextUser);
-        setChecking(false);
-      })
-      .catch(() => {
-        logout();
-        setChecking(false);
-      });
     }
 
     bootstrapAuth();
-    return () => { cancelled = true; };
+
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        setBootstrapping(false);
+        setChecking(false);
+        if (Capacitor.isNativePlatform()) SplashScreen.hide();
+      }
+    }, 200);
+
+    return () => { cancelled = true; clearTimeout(timer); setBootstrapping(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!checking) {
+      const msg = consumePendingKickMessage();
+      if (msg) {
+        alertDialog(msg, { title: '登录失效', tone: 'danger' });
+      }
+    }
+  }, [checking]);
+
   if (checking) {
-    return (
-      <div className="app-startup">
-        <div className="app-startup-logo">ChatApp</div>
-        <div className="app-startup-text">正在启动...</div>
-      </div>
-    );
+    return null;
   }
 
   return (

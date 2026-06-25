@@ -26,6 +26,9 @@
   --transition:    0.16s ease;
   --mobile-safe-top: calc(env(safe-area-inset-top, 0px) + 16px);
   --mobile-safe-bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+  /* 零化 ChatUI 自带的 --safe-top / --safe-bottom，避免其 Navbar/ChatFooter 干扰布局 */
+  --safe-top: 0px;
+  --safe-bottom: 0px;
   /* alternate zeroed bottom safe area for keyboard open state */
   --mobile-safe-bottom-zero: 0px;
   --chat-safe-top: calc(var(--mobile-safe-top) + 9px);
@@ -51,26 +54,6 @@ html, body {
   overflow: hidden;
 }
 #root { height: 100%; }
-
-.app-startup {
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 12px;
-  background: linear-gradient(135deg, #e8eeff, #f5f0ff);
-}
-.app-startup-logo {
-  font-size: 30px;
-  font-weight: 800;
-  color: var(--accent);
-}
-.app-startup-text {
-  color: var(--text-secondary);
-  font-size: 14px;
-}
 
 /* ─── Layout ─────────────────────────────────────────────────── */
 .app-layout {
@@ -484,7 +467,36 @@ html, body {
   background: linear-gradient(160deg, #f0f3ff 0%, #f8f6ff 100%);
 }
 .chat-empty-inner { text-align: center; color: var(--text-muted); }
-.chat-empty-icon { font-size: 72px; margin-bottom: 16px; opacity: 0.5; }
+.chat-empty-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  border-radius: 20px;
+  background: #eef3ff;
+  border: 1px solid #d9e2f6;
+  position: relative;
+  opacity: 0.9;
+}
+.chat-empty-icon::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: 22px;
+  width: 36px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--accent);
+}
+.chat-empty-icon::after {
+  content: "";
+  position: absolute;
+  left: 25px;
+  top: 42px;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
 .chat-empty-inner h3 { font-size: 20px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; }
 .chat-empty-inner p { font-size: 14px; }
 
@@ -1194,7 +1206,7 @@ html, body {
     overflow-y: auto;
     padding-bottom: calc(28px + var(--mobile-safe-bottom));
   }
-  .auth-card { max-width: 100%; border-radius: 0; border: none; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+  .auth-card { max-width: 100%; border-radius: 0; border: none; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding-top: var(--mobile-safe-top); padding-bottom: var(--mobile-safe-bottom); }
   .group-detail-panel {
     width: 100%;
     padding-top: 0;
@@ -1322,16 +1334,14 @@ html, body {
 }
 
 .mobile-chat-surface {
+  position: relative;
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
   background: var(--bg-primary);
 }
 
 .mobile-message-scroll {
-  flex: 1;
-  min-height: 0;
+  height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -1340,8 +1350,12 @@ html, body {
 
 .mobile-message-list {
   min-height: 100%;
-  padding: 12px 12px 14px;
-  contain: layout style;
+  padding: 12px 12px calc(56px + var(--mobile-safe-bottom) + 24px);
+  contain: layout style paint;
+}
+
+html.keyboard-open .mobile-message-list {
+  padding-bottom: calc(56px + var(--mobile-safe-bottom) + 10px);
 }
 
 .mobile-message-row {
@@ -1349,7 +1363,7 @@ html, body {
   align-items: flex-start;
   gap: 7px;
   margin: 10px 0;
-  contain: layout style;
+  contain: layout style paint;
 }
 
 .mobile-message-row.right {
@@ -1462,6 +1476,11 @@ html, body {
 
 /* ─── Custom Composer ────────────────────────────────────── */
 .custom-composer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
   display: flex;
   align-items: flex-end;
   gap: 10px;

@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { clearNativeAuth } from './nativeAuthStorage';
 import { alertDialog } from './appDialog';
 
 // 默认使用固定后端地址（可被 REACT_APP_API_URL 覆盖）
@@ -40,6 +39,14 @@ function normalizeUploadURLs(value) {
 
 const api = axios.create({ baseURL: API_BASE, withCredentials: true });
 let isHandlingAuthError = false;
+let isBootstrapping = false;
+export function setBootstrapping(v) { isBootstrapping = v; }
+let pendingKickMessage = null;
+export function consumePendingKickMessage() {
+  const msg = pendingKickMessage;
+  pendingKickMessage = null;
+  return msg;
+}
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -54,14 +61,19 @@ api.interceptors.response.use(
       if (!isHandlingAuthError) {
         isHandlingAuthError = true;
         const data = err.response.data;
-        const finish = () => {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          clearNativeAuth();
-          window.location.reload();
+        const finish = async () => {
+          // 使用 store logout 触发 React 状态过渡，不做页面重载
+          // 避免多重重载导致 Capacitor WebView 安全区值异常
+          const { useAuthStore } = await import('../store');
+          useAuthStore.getState().logout();
         };
         if (data?.kick) {
-          alertDialog(data.error || '登录状态已失效，请重新登录', { title: '登录失效', tone: 'danger' }).finally(finish);
+          if (!isBootstrapping) {
+            alertDialog(data.error || '登录状态已失效，请重新登录', { title: '登录失效', tone: 'danger' }).finally(finish);
+          } else {
+            pendingKickMessage = data.error || '登录状态已失效，请重新登录';
+            finish();
+          }
         } else {
           finish();
         }

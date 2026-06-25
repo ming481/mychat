@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { withAssetVersion } from './api';
 
 const blobCache = new Map();
@@ -24,6 +24,7 @@ export function useAvatarSrc(src, name) {
     return withAssetVersion(src, 'avatar');
   }, [src]);
   const [displaySrc, setDisplaySrc] = useState(normalized || fallback);
+  const blobUrlRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +45,7 @@ export function useAvatarSrc(src, name) {
     }
 
     setDisplaySrc(fallback);
-    fetch(normalized, { cache: 'reload' })
+    fetch(normalized)
       .then(res => {
         if (!res.ok) throw new Error(`avatar ${res.status}`);
         return res.blob();
@@ -52,14 +53,31 @@ export function useAvatarSrc(src, name) {
       .then(blob => {
         if (cancelled) return;
         const objectUrl = URL.createObjectURL(blob);
+        // cap cache size to prevent unbounded memory growth
+        if (blobCache.size > 50) {
+          const oldest = blobCache.keys().next().value;
+          const oldBlob = blobCache.get(oldest);
+          URL.revokeObjectURL(oldBlob);
+          blobCache.delete(oldest);
+        }
         blobCache.set(normalized, objectUrl);
+        // revoke previous blob URL before replacing
+        if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = objectUrl;
         setDisplaySrc(objectUrl);
       })
       .catch(() => {
         if (!cancelled) setDisplaySrc(fallback);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // revoke blob URL on unmount
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
   }, [normalized, fallback]);
 
   return displaySrc;

@@ -3,10 +3,12 @@ import '@chatui/core/dist/index.css';
 import './styles/app.css';
 import { useAuthStore, useChatStore } from './store';
 import { useSocket } from './hooks/useSocket';
-import { authAPI } from './utils/api';
+import { authAPI, setBootstrapping, consumePendingKickMessage } from './utils/api';
 import AuthPage from './pages/AuthPage';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
+import AppDialogHost from './components/AppDialogHost';
+import { alertDialog } from './utils/appDialog';
 
 function AppLayout() {
   useSocket();
@@ -16,7 +18,7 @@ function AppLayout() {
   useEffect(() => {
     if (!window.chatApp?.onDownloadCompleted) return undefined;
     return window.chatApp.onDownloadCompleted(({ savePath }) => {
-      alert(`下载完成，已保存到：\n${savePath}`);
+      alertDialog(`下载完成，已保存到：\n${savePath}`, { title: '下载完成' });
     });
   }, []);
 
@@ -39,28 +41,45 @@ function AppLayout() {
 }
 
 export default function App() {
-  const { token, user, setAuth, logout } = useAuthStore();
+  const { token, setAuth, logout } = useAuthStore();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!token) {
-      setChecking(false);
-      return;
+    let cancelled = false;
+    setBootstrapping(true);
+
+    async function bootstrapAuth() {
+      if (!token) return;
+      try {
+        const nextUser = await authAPI.me();
+        if (!cancelled) setAuth(token, nextUser);
+      } catch {
+        if (!cancelled) logout();
+      }
     }
 
-    if (user) setChecking(false);
+    bootstrapAuth();
 
-    authAPI.me()
-      .then(nextUser => {
-        setAuth(token, nextUser);
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        setBootstrapping(false);
         setChecking(false);
-      })
-      .catch(() => {
-        logout();
-        setChecking(false);
-      });
+      }
+    }, 500);
+
+    return () => { cancelled = true; clearTimeout(timer); setBootstrapping(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!checking) {
+      const msg = consumePendingKickMessage();
+      if (msg) {
+        alertDialog(msg, { title: '登录失效', tone: 'danger' });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checking]);
 
   if (checking) {
     return (
@@ -71,5 +90,10 @@ export default function App() {
     );
   }
 
-  return token ? <AppLayout /> : <AuthPage />;
+  return (
+    <>
+      {token ? <AppLayout /> : <AuthPage />}
+      <AppDialogHost />
+    </>
+  );
 }

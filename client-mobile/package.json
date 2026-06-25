@@ -10,6 +10,7 @@
     "@capacitor/core": "^8.4.0",
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/preferences": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.1",
     "@chatui/core": "^3.7.0",
     "axios": "^1.4.0",
     "dayjs": "^1.11.9",

@@ -6,6 +6,7 @@ import SearchModal from './SearchModal';
 import ProfileModal from './ProfileModal';
 import { fallbackAvatar, handleAvatarError, useAvatarSrc } from '../utils/avatar';
 import { localMessageCache } from '../utils/localMessageCache';
+import { alertDialog, confirmDialog } from '../utils/appDialog';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -273,7 +274,7 @@ export default function Sidebar() {
   }
 
   async function removeConversationHistory(conv) {
-    if (!window.confirm('删除这一条本地聊天记录吗？')) return;
+    if (!await confirmDialog('删除这一条本地聊天记录吗？', { title: '删除聊天记录' })) return;
     const key = `${conv.type}_${conv.target_id}`;
     useChatStore.getState().removeMessages(key);
     useChatStore.getState().removeConversation(conv.target_id, conv.type);
@@ -304,13 +305,13 @@ export default function Sidebar() {
 
   async function handleDeleteFriend(friend) {
     const name = friend.remark || friend.nickname || friend.username || '该好友';
-    if (!window.confirm(`确定删除 ${name} 吗？聊天记录会保留，可之后在聊天记录管理中清理。`)) return;
+    if (!await confirmDialog(`确定删除 ${name} 吗？聊天记录会保留，可之后在聊天记录管理中清理。`, { title: '删除好友', confirmText: '删除', tone: 'danger' })) return;
     markFriendInactive(friend.id, friend);
     try {
       await friendAPI.delete(friend.id);
     } catch (e) {
       console.error(e);
-      alert('删除失败，已重新刷新好友列表');
+      alertDialog('删除失败，已重新刷新好友列表', { title: '提示' });
       loadAllRef.current();
     }
   }

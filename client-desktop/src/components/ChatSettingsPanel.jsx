@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '../store';
 import { messageAPI } from '../utils/api';
 import { localMessageCache } from '../utils/localMessageCache';
+import { alertDialog, confirmDialog, promptDialog } from '../utils/appDialog';
 import {
   chooseDownloadPath,
   chooseMessagePath,
@@ -17,8 +18,6 @@ export default function ChatSettingsPanel({ onMessage }) {
   const [downloadPath, setDownloadPath] = useState('');
   const [messagePath, setMessagePath] = useState('');
   const [showManager, setShowManager] = useState(false);
-  const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [syncPassword, setSyncPassword] = useState('');
   const [selected, setSelected] = useState(new Set());
   const [cachedConversations, setCachedConversations] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -91,20 +90,19 @@ export default function ChatSettingsPanel({ onMessage }) {
     onMessage?.('已清理选中的本地聊天记录');
   }
 
-  function openSyncDialog() {
+  async function syncHistory() {
     if (syncing) return;
-    setSyncPassword('');
-    setShowSyncDialog(true);
-  }
+    const confirmed = await confirmDialog(
+      '同步会用服务器聊天记录覆盖当前本地好友/群聊记录，继续吗？',
+      { title: '同步聊天记录', confirmText: '继续同步' }
+    );
+    if (!confirmed) return;
 
-  async function submitSyncHistory(event) {
-    event?.preventDefault();
-    if (syncing) return;
-    const password = syncPassword.trim();
-    if (!password) {
-      onMessage?.('请输入当前账号密码');
-      return;
-    }
+    const password = await promptDialog(
+      '请输入当前账号密码以确认同步',
+      { title: '密码确认', inputType: 'password', placeholder: '当前账号密码', confirmText: '开始同步' }
+    );
+    if (!password) return;
 
     setSyncing(true);
     try {
@@ -132,12 +130,10 @@ export default function ChatSettingsPanel({ onMessage }) {
       }
 
       setCachedConversations(await localMessageCache.listConversations().catch(() => []));
-      setShowSyncDialog(false);
-      setSyncPassword('');
-      onMessage?.(`聊天记录同步完成，共同步 ${rows.length} 个会话`);
+      alertDialog(`聊天记录同步完成，共同步 ${rows.length} 个会话`, { title: '同步完成' });
     } catch (err) {
       console.error(err);
-      onMessage?.(err?.error || '聊天记录同步失败');
+      await alertDialog(err?.error || '聊天记录同步失败', { title: '同步失败', tone: 'danger' });
     } finally {
       setSyncing(false);
     }
@@ -167,41 +163,10 @@ export default function ChatSettingsPanel({ onMessage }) {
         </div>
       </div>
 
-      <button className="auth-btn" type="button" onClick={openSyncDialog} disabled={syncing}>
+      <button className="auth-btn" type="button" onClick={syncHistory} disabled={syncing}>
         {syncing ? '正在同步聊天记录...' : '同步聊天记录'}
       </button>
       <button className="auth-btn" type="button" onClick={() => setShowManager(true)}>聊天记录管理</button>
-
-      {showSyncDialog && (
-        <div className="settings-manager">
-          <form className="settings-manager-box settings-sync-box" onSubmit={submitSyncHistory}>
-            <div className="settings-manager-head">
-              <strong>同步聊天记录</strong>
-              <button type="button" onClick={() => setShowSyncDialog(false)} disabled={syncing}>x</button>
-            </div>
-            <div className="settings-sync-body">
-              <p>同步会从服务器拉取当前好友和群聊的聊天记录，并覆盖本机已有记录。</p>
-              <label className="settings-sync-password">
-                <span>当前账号密码</span>
-                <input
-                  autoFocus
-                  type="password"
-                  value={syncPassword}
-                  onChange={event => setSyncPassword(event.target.value)}
-                  disabled={syncing}
-                  placeholder="请输入密码"
-                />
-              </label>
-            </div>
-            <div className="settings-manager-actions">
-              <button type="button" onClick={() => setShowSyncDialog(false)} disabled={syncing}>取消</button>
-              <button type="submit" disabled={syncing || !syncPassword.trim()}>
-                {syncing ? '同步中...' : '确认同步'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {showManager && (
         <div className="settings-manager">

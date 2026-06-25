@@ -21,8 +21,6 @@ dayjs.locale('zh-cn');
 
 const MSG_TYPE = { TEXT: 0, IMAGE: 1, FILE: 2 };
 const LOCAL_MESSAGE_LIMIT = 20;
-const avatarCache = new Map();
-const imageCache = new Map();
 const T = {
   back: '\u8fd4\u56de',
   typing: '\u6b63\u5728\u8f93\u5165...',
@@ -141,6 +139,38 @@ function latestNumericMessageId(messages) {
   }, 0);
 }
 
+const MessageRow = React.memo(function MessageRow({ msg, renderContent }) {
+  if (msg.type === 'system') {
+    return (
+      <div className="mobile-system-message">
+        <span>{msg.content.text}</span>
+      </div>
+    );
+  }
+  const isRight = msg.position === 'right';
+  return (
+    <div className={`mobile-message-row ${isRight ? 'right' : 'left'}`}>
+      {!isRight && <img className="mobile-message-avatar" src={msg.user.avatar} alt="" />}
+      <div className="mobile-message-main">
+        {!isRight && <div className="mobile-message-name">{msg.user.name}</div>}
+        <div className="mobile-message-bubble">
+          {renderContent(msg)}
+        </div>
+      </div>
+      {isRight && <img className="mobile-message-avatar" src={msg.user.avatar} alt="" />}
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  const a = prevProps.msg;
+  const b = nextProps.msg;
+  if (a._id !== b._id) return false;
+  if (a.type !== b.type) return false;
+  if (a.type === 'system') return a.content.text === b.content.text;
+  if (a.type === 'image') return a.content.picUrl === b.content.picUrl;
+  if (a.type === 'file') return a.content.url === b.content.url;
+  return a.content.text === b.content.text;
+});
+
 export default function ChatWindow() {
   const { user } = useAuthStore();
   const {
@@ -166,8 +196,6 @@ export default function ChatWindow() {
   const [replyTo, setReplyTo] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [groupInfo, setGroupInfo] = useState(null);
-  const [avatarMap, setAvatarMap] = useState({});
-  const [imageMap, setImageMap] = useState({});
   const [positionedKey, setPositionedKey] = useState(null);
   const [historyLoadingVisible, setHistoryLoadingVisible] = useState(false);
   const [imageViewer, setImageViewer] = useState(null);
@@ -187,7 +215,7 @@ export default function ChatWindow() {
   const historyGestureRef = useRef(false);
   const historyGestureTimerRef = useRef(null);
   const keyboardScrollTimerRef = useRef(null);
-  const imagePendingRef = useRef(new Set());
+  const keyboardViewportHeightRef = useRef(0);
   const userNearBottomRef = useRef(true);
   const preservingScrollRef = useRef(null);
   const lastMessageIdRef = useRef(null);
@@ -496,10 +524,14 @@ export default function ChatWindow() {
       };
       tick();
     };
+    keyboardViewportHeightRef.current = viewport.height;
     const handleResize = () => {
-      if (document.activeElement?.classList?.contains('custom-composer-input')) {
+      const isInputFocused = document.activeElement?.classList?.contains('custom-composer-input');
+      const isViewportGrowing = viewport.height > keyboardViewportHeightRef.current;
+      if (isInputFocused || isViewportGrowing) {
         settleToBottom();
       }
+      keyboardViewportHeightRef.current = viewport.height;
     };
     viewport.addEventListener('resize', handleResize);
     viewport.addEventListener('scroll', handleResize);
@@ -517,75 +549,9 @@ export default function ChatWindow() {
   const isReadOnlyChat = READONLY_STATES.includes(groupState);
   const groupStateText = groupState === 'kicked' ? T.kicked : groupState === 'dissolved' ? T.dissolved : groupState === 'unfriended' ? T.unfriended : '';
 
-  useEffect(() => {
-    const urls = Array.from(new Set(rawMessages
-      .map(msg => msg.sender_avatar)
-      .filter(Boolean)
-      .map(url => withAssetVersion(url, 'chat-avatar'))
-      .filter(url => typeof url === 'string' && url.includes('/uploads/'))));
-
-    urls.forEach(url => {
-      if (avatarMap[url]) return;
-      const cached = avatarCache.get(url);
-      if (cached) {
-        setAvatarMap(prev => ({ ...prev, [url]: cached }));
-        return;
-      }
-      fetch(url, { cache: 'reload' })
-        .then(res => {
-          if (!res.ok) throw new Error(`avatar ${res.status}`);
-          return res.blob();
-        })
-        .then(blob => {
-          const objectUrl = URL.createObjectURL(blob);
-          avatarCache.set(url, objectUrl);
-          setAvatarMap(prev => ({ ...prev, [url]: objectUrl }));
-        })
-        .catch(() => {});
-    });
-  }, [rawMessages, avatarMap]);
-
-  useEffect(() => {
-    const urls = Array.from(new Set(rawMessages
-      .filter(msg => msg.type === MSG_TYPE.IMAGE && !msg.is_recalled)
-      .map(msg => withAssetVersion(msg.file_url || msg.content, msg.updated_at || msg.id))
-      .filter(url => typeof url === 'string' && url.includes('/uploads/'))));
-
-    const cachedUpdates = {};
-    urls.forEach(url => {
-      if (imageMap[url] || imagePendingRef.current.has(url)) return;
-      const cached = imageCache.get(url);
-      if (cached) {
-        cachedUpdates[url] = cached;
-        return;
-      }
-      imagePendingRef.current.add(url);
-      fetch(url, { cache: 'reload' })
-        .then(res => {
-          if (!res.ok) throw new Error(`image ${res.status}`);
-          return res.blob();
-        })
-        .then(blob => {
-          const objectUrl = URL.createObjectURL(blob);
-          imageCache.set(url, objectUrl);
-          setImageMap(prev => ({ ...prev, [url]: objectUrl }));
-        })
-        .catch(() => {})
-        .finally(() => {
-          imagePendingRef.current.delete(url);
-        });
-    });
-
-    if (Object.keys(cachedUpdates).length > 0) {
-      setImageMap(prev => ({ ...prev, ...cachedUpdates }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawMessages]);
-
   function getMessageAvatar(msg) {
     if (!msg.sender_avatar) return fallbackAvatar(msg.sender_nickname);
-    const url = withAssetVersion(msg.sender_avatar, 'chat-avatar');
-    return avatarMap[url] || url || fallbackAvatar(msg.sender_nickname);
+    return withAssetVersion(msg.sender_avatar, 'chat-avatar') || fallbackAvatar(msg.sender_nickname);
   }
 
   function buildContent(msg) {
@@ -594,8 +560,7 @@ export default function ChatWindow() {
     }
     if (msg.type === MSG_TYPE.IMAGE) {
       const url = withAssetVersion(msg.file_url || msg.content, msg.updated_at || msg.id);
-      const needsBlob = typeof url === 'string' && url.includes('/uploads/');
-      return { picUrl: imageMap[url] || url, downloadUrl: url, isLoading: needsBlob && !imageMap[url] };
+      return { picUrl: url, downloadUrl: url };
     }
     if (msg.type === MSG_TYPE.FILE) return { name: msg.file_name, size: fmtBytes(msg.file_size), url: withAssetVersion(msg.file_url || msg.content, msg.updated_at || msg.id) };
     return { text: msg.content || '' };
@@ -674,7 +639,7 @@ export default function ChatWindow() {
     });
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawMessages, avatarMap, imageMap, user.id]);
+  }, [rawMessages, user.id]);
 
   useLayoutEffect(() => {
     if (!activeChat) return;
@@ -934,11 +899,9 @@ export default function ChatWindow() {
     if (msg.type === 'image') return (
       <div className="msg-image-message" onContextMenu={event => handleContextMenu(event, msg)}>
         {replyBlock}
-        {isExpired ? <div className="msg-expired">{T.imageExpired}</div> : msg.content.isLoading ? (
-          <div className="msg-image-wrap msg-image-loading">{T.imageLoading}</div>
-        ) : (
+        {isExpired ? <div className="msg-expired">{T.imageExpired}</div> : (
           <div className="msg-image-wrap aspect-square" onClick={() => setImageViewer({ url: msg.content.picUrl })}>
-            <img key={msg.content.picUrl} src={msg.content.picUrl} alt="" className="msg-image" loading="lazy" onLoad={handleImageLoad} />
+            <img src={msg.content.picUrl} alt="" className="msg-image" loading="lazy" onLoad={handleImageLoad} />
             <button className="msg-download-btn" type="button" onClick={(event) => { event.stopPropagation(); downloadToDevice(msg.content.downloadUrl || msg.content.picUrl, (msg.content.downloadUrl || msg.content.picUrl).split('/').pop() || 'image'); }} title={T.downloadImage}>↓</button>
           </div>
         )}
@@ -975,7 +938,8 @@ export default function ChatWindow() {
     const [hasText, setHasText] = useState(false);
     const textareaRef = useRef(null);
     const textRef = useRef('');
-    const heightRafRef = useRef(null);
+    const hasTextRef = useRef(false);
+    const heightTimerRef = useRef(null);
     const focusedRef = useRef(false);
     const typingTextStateRef = useRef(false);
 
@@ -988,6 +952,7 @@ export default function ChatWindow() {
             if (cancelled || !draft) return;
             textRef.current = draft;
             textareaRef.current.value = draft;
+            hasTextRef.current = true;
             setHasText(true);
             localMessageCache.clearDraft(draftChat.type, draftChat.id).catch(() => {});
             requestAnimationFrame(() => {
@@ -1014,7 +979,7 @@ export default function ChatWindow() {
       };
     }, [chatType, chatId]);
 
-    useEffect(() => () => cancelAnimationFrame(heightRafRef.current), []);
+    useEffect(() => () => cancelAnimationFrame(heightTimerRef.current), []);
 
     const updateTyping = useCallback((value, isFocused, force = false) => {
       const hasInputText = Boolean(String(value || '').trim());
@@ -1026,13 +991,20 @@ export default function ChatWindow() {
     const handleChange = (event) => {
       const value = event.target.value;
       textRef.current = value;
-      setHasText(Boolean(value.trim()));
+      // 只在空↔非空切换时更新 hasText，避免持续按键触发 re-render
+      const nowHasText = Boolean(value.trim());
+      if (nowHasText !== hasTextRef.current) {
+        hasTextRef.current = nowHasText;
+        setHasText(nowHasText);
+      }
       updateTyping(value, focusedRef.current);
-      cancelAnimationFrame(heightRafRef.current);
-      heightRafRef.current = requestAnimationFrame(() => {
+      // 用 rAF 做高度调整，不对齐帧边界即可，不延迟更新
+      cancelAnimationFrame(heightTimerRef.current);
+      heightTimerRef.current = requestAnimationFrame(() => {
         if (!textareaRef.current) return;
         textareaRef.current.style.height = 'auto';
         textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+        if (userNearBottomRef.current) scrollToBottom(false);
       });
     };
 
@@ -1052,6 +1024,7 @@ export default function ChatWindow() {
       onSend('text', val);
       textRef.current = '';
       textareaRef.current.value = '';
+      hasTextRef.current = false;
       setHasText(false);
       localMessageCache.clearDraft(chatType, chatId).catch(() => {});
       updateTyping('', false, true);
@@ -1122,7 +1095,7 @@ export default function ChatWindow() {
     return (
       <div className="chat-empty">
         <div className="chat-empty-inner">
-          <div className="chat-empty-icon">Chat</div>
+          <div className="chat-empty-icon" />
           <h3>{T.welcome}</h3>
           <p>{T.chooseChat}</p>
         </div>
@@ -1168,28 +1141,9 @@ export default function ChatWindow() {
         <div className="mobile-chat-surface" key={convKey(activeChat.type, activeChat.id)}>
           <div className="mobile-message-scroll">
             <div className="mobile-message-list">
-              {chatMessages.map(msg => {
-                if (msg.type === 'system') {
-                  return (
-                    <div className="mobile-system-message" key={msg._id}>
-                      <span>{msg.content.text}</span>
-                    </div>
-                  );
-                }
-                const isRight = msg.position === 'right';
-                return (
-                  <div className={`mobile-message-row ${isRight ? 'right' : 'left'}`} key={msg._id}>
-                    {!isRight && <img className="mobile-message-avatar" src={msg.user.avatar} alt="" />}
-                    <div className="mobile-message-main">
-                      {!isRight && <div className="mobile-message-name">{msg.user.name}</div>}
-                      <div className="mobile-message-bubble">
-                        {renderMessageContent(msg)}
-                      </div>
-                    </div>
-                    {isRight && <img className="mobile-message-avatar" src={msg.user.avatar} alt="" />}
-                  </div>
-                );
-              })}
+              {chatMessages.map(msg => (
+                <MessageRow key={msg._id} msg={msg} renderContent={renderMessageContent} />
+              ))}
             </div>
           </div>
           <CustomComposer

@@ -309,13 +309,13 @@ function createTray() {
   tray.setToolTip('ChatApp');
   tray.setContextMenu(Menu.buildFromTemplate([
     {
-      label: 'Open ChatApp',
+      label: '打开',
       click: () => {
         showMainWindow();
       },
     },
     {
-      label: 'Quit',
+      label: '退出',
       click: () => {
         isQuitting = true;
         app.quit();

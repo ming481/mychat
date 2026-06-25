@@ -127,7 +127,7 @@ export default function ChatSettingsPanel({ onMessage }) {
       }
 
       setCachedConversations(await localMessageCache.listConversations().catch(() => []));
-      onMessage?.(`聊天记录同步完成，共同步 ${rows.length} 个会话`);
+      alertDialog(`聊天记录同步完成，共同步 ${rows.length} 个会话`, { title: '同步完成' });
     } catch (err) {
       console.error(err);
       await alertDialog(err?.error || '聊天记录同步失败', { title: '同步失败', tone: 'danger' });

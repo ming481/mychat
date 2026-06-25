@@ -38,6 +38,14 @@ function normalizeUploadURLs(value) {
 
 const api = axios.create({ baseURL: API_BASE, withCredentials: true });
 let isHandlingAuthError = false;
+let isBootstrapping = false;
+export function setBootstrapping(v) { isBootstrapping = v; }
+let pendingKickMessage = null;
+export function consumePendingKickMessage() {
+  const msg = pendingKickMessage;
+  pendingKickMessage = null;
+  return msg;
+}
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -47,17 +55,21 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => normalizeUploadURLs(res.data),
-  (err) => {
+  async (err) => {
     if (err.response?.status === 401) {
       if (!isHandlingAuthError) {
         isHandlingAuthError = true;
         const data = err.response.data;
         if (data?.kick) {
-          alert(data.error || '登录状态已失效，请重新登录');
+          if (!isBootstrapping) {
+            const { alertDialog } = await import('./appDialog');
+            await alertDialog(data.error || '登录状态已失效，请重新登录', { title: '登录失效', tone: 'danger' });
+          } else {
+            pendingKickMessage = data.error || '登录状态已失效，请重新登录';
+          }
         }
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.reload();
+        const { useAuthStore } = await import('../store');
+        useAuthStore.getState().logout();
       }
     }
     return Promise.reject(err.response?.data || err);
