@@ -55,9 +55,14 @@ function AppLayout() {
   useEffect(() => {
     // 清除可能残留的 keyboard-open 类，避免跨组件挂载周期状态污染
     document.documentElement.classList.remove('keyboard-open');
+    // Initialize the full-vh CSS variable to the current viewport height
+    document.documentElement.style.setProperty('--full-vh', `${window.innerHeight}px`);
 
     const vp = window.visualViewport;
     let vpHeight = vp?.height;
+    // Track viewport height when keyboard is closed, to maintain full-page height
+    // even when adjustResize shrinks the viewport (fix for CreateGroupPage overlay)
+    let closedVpHeight = vp?.height || window.innerHeight;
 
     function syncKeyboardOpen() {
       if (!vp) return;
@@ -65,6 +70,9 @@ function AppLayout() {
       vpHeight = vp.height;
       const diff = vpHeight - prev; // >0 means keyboard dismissed, <0 means opened
       if (diff > 100) {
+        // Keyboard was dismissed, save restored height
+        closedVpHeight = vp.height;
+        document.documentElement.style.setProperty('--full-vh', `${closedVpHeight}px`);
         // Keyboard was dismissed (e.g. Android IME back), blur any focused input
         const focused = document.activeElement;
         if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.isContentEditable)) {
@@ -75,6 +83,7 @@ function AppLayout() {
         // Keyboard opened, ensure class is set
         const focused = document.activeElement;
         if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.isContentEditable)) {
+          document.documentElement.style.setProperty('--full-vh', `${closedVpHeight}px`);
           document.documentElement.classList.add('keyboard-open');
         }
       }
@@ -84,6 +93,7 @@ function AppLayout() {
       const tag = e.target && e.target.tagName && e.target.tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
         document.documentElement.classList.add('keyboard-open');
+        document.documentElement.style.setProperty('--full-vh', `${closedVpHeight}px`);
       }
     }
     function onFocusOut(e) {

@@ -1,7 +1,8 @@
 {
   "name": "chatapp",
-  "version": "1.0.3",
+  "version": "1.0.7",
   "description": "Full-stack chat application",
+  "author": "ChatApp",
   "main": "electron/main.js",
   "scripts": {
     "server": "cd server && npm run dev",

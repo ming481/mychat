@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useChatStore, useAuthStore } from '../store';
 import { friendAPI, messageAPI, groupAPI } from '../utils/api';
 import { getSocket } from '../hooks/useSocket';
-import SearchModal from './SearchModal';
+import SearchUserPage from './SearchUserPage';
+import CreateGroupPage from './CreateGroupPage';
 import ProfileModal from './ProfileModal';
 import { handleAvatarError, useAvatarSrc } from '../utils/avatar';
 import { localMessageCache } from '../utils/localMessageCache';
@@ -137,17 +138,34 @@ function FriendItem({ friend, status, onClick, onDelete }) {
   );
 }
 
-function GroupItem({ group, onClick }) {
+function JoinedGroupItem({ group, onClick }) {
   return (
     <div className="friend-item" onClick={onClick}>
       <Avatar src={group.avatar_url} name={group.name} size={40} />
       <div className="friend-info">
         <div className="friend-name">{group.name}</div>
-        <div className="friend-sig">
-          {group.member_count} 名成员
-          {group.role === 2 ? ' · 群主' : group.role === 1 ? ' · 管理员' : ''}
+        {group.role === 1 && <div className="friend-sig">管理员</div>}
+      </div>
+    </div>
+  );
+}
+
+function OwnerGroupItem({ group, expanded, pendingCount, onToggle, onClick, children }) {
+  return (
+    <div>
+      <div className="friend-item owner-group-row" onClick={onClick}>
+        <Avatar src={group.avatar_url} name={group.name} size={40} />
+        <div className="friend-info">
+          <div className="friend-name">{group.name}</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {pendingCount > 0 && <span className="group-pending-badge">{pendingCount > 99 ? '99+' : pendingCount}</span>}
+          <button className="group-expand-btn" onClick={e => { e.stopPropagation(); onToggle(); }}>
+            {expanded ? '折叠' : '展开'}
+          </button>
         </div>
       </div>
+      {expanded && <div className="group-requests-panel">{children}</div>}
     </div>
   );
 }
@@ -164,25 +182,38 @@ export default function Sidebar() {
     markFriendInactive,
     friendRequests, setFriendRequests, removeFriendRequest,
     clearUnread, onlineUsers,
+    groupJoinRequests, setGroupJoinRequests,
   } = useChatStore();
 
-  const [showSearch, setShowSearch] = useState(false);
+  const [showSearchUser, setShowSearchUser] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showReqs, setShowReqs] = useState(true);
   const [reqLoading, setReqLoading] = useState({});
   const [visualTab, setVisualTab] = useState(sidebarTab);
+  const [groupsSubTab, setGroupsSubTab] = useState('joined');
+  const [expandedGroups, setExpandedGroups] = useState({});
+  const [processingRequest, setProcessingRequest] = useState({});
 
   useEffect(() => {
     setVisualTab(sidebarTab);
   }, [sidebarTab]);
 
   useEffect(() => {
-    if (!showSearch) return undefined;
+    if (!showSearchUser) return undefined;
     return registerBackHandler(() => {
-      setShowSearch(false);
+      setShowSearchUser(false);
       return true;
     });
-  }, [showSearch]);
+  }, [showSearchUser]);
+
+  useEffect(() => {
+    if (!showCreateGroup) return undefined;
+    return registerBackHandler(() => {
+      setShowCreateGroup(false);
+      return true;
+    });
+  }, [showCreateGroup]);
 
   useEffect(() => {
     if (!showProfile) return undefined;
@@ -276,6 +307,51 @@ export default function Sidebar() {
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refresh join requests when switching to "我创建的群聊" sub-tab
+  // Real-time updates are handled by useSocket.js (group:join-request listener)
+  useEffect(() => {
+    if (sidebarTab !== 'groups' || groupsSubTab !== 'created') return;
+    groupAPI.joinRequests().then(data => {
+      const map = {};
+      (Array.isArray(data) ? data : []).forEach(req => {
+        const gid = String(req.group_id);
+        if (!map[gid]) map[gid] = [];
+        map[gid].push(req);
+      });
+      setGroupJoinRequests(map);
+    }).catch(() => {});
+  }, [sidebarTab, groupsSubTab, setGroupJoinRequests]);
+
+  async function toggleGroupExpand(groupId) {
+    const key = String(groupId);
+    const isExpanded = expandedGroups[key];
+    if (isExpanded) {
+      setExpandedGroups(prev => { const next = { ...prev }; delete next[key]; return next; });
+    } else {
+      setExpandedGroups(prev => ({ ...prev, [key]: true }));
+    }
+  }
+
+  async function handleJoinRequest(requestId, groupId, action) {
+    setProcessingRequest(prev => ({ ...prev, [requestId]: true }));
+    try {
+      await groupAPI.handleJoinRequest(requestId, action);
+      setGroupJoinRequests(prev => {
+        const next = { ...prev };
+        const key = String(groupId);
+        if (next[key]) next[key] = next[key].filter(r => String(r.id) !== String(requestId));
+        if (!next[key]?.length) delete next[key];
+        return next;
+      });
+      if (action === 'accept') await loadAllRef.current();
+    } catch { /* ignore */ }
+    setProcessingRequest(prev => { const next = { ...prev }; delete next[requestId]; return next; });
+  }
+
+  const totalPending = Object.values(groupJoinRequests).reduce((s, list) => s + (Array.isArray(list) ? list.length : 0), 0);
+  const ownedGroups = groups.filter(g => Number(g.role) === 2);
+  const joinedGroups = groups.filter(g => Number(g.role) !== 2);
 
   async function prepareLocalMessages(chatType, chatId, conversation) {
     let targetConversation = conversation;
@@ -387,7 +463,7 @@ export default function Sidebar() {
           <Avatar src={user?.avatar_url} name={user?.nickname} size={34} status={user?.status ?? 1} />
         </button>
         <span className="sidebar-username">{user?.nickname || user?.username}</span>
-        <button className="sidebar-search-btn" onClick={() => setShowSearch(true)} title="搜索/添加好友">🔍</button>
+        <button className="sidebar-search-btn" onClick={() => setShowSearchUser(true)} title="搜索/添加好友">🔍</button>
       </div>
 
       {/* Tabs */}
@@ -405,6 +481,7 @@ export default function Sidebar() {
         <button className={`sidebar-tab${visualTab === 'groups' ? ' active' : ''}`}
           onClick={() => switchTab('groups')} title="群聊">
           🏠
+          {totalPending > 0 && <span className="tab-badge">{totalPending > 99 ? '99+' : totalPending}</span>}
         </button>
         {/* Sliding indicator (GPU-accelerated transform) */}
         <div className="tab-indicator" aria-hidden="true" />
@@ -479,21 +556,78 @@ export default function Sidebar() {
         {/* ── 群聊列表 ── */}
         {sidebarTab === 'groups' && (
           <>
-            <button className="create-group-btn" onClick={() => setShowSearch(true)}>＋ 创建群聊</button>
-            {groups.length === 0
-              ? <div className="sidebar-empty">还没有群聊<br /><small>点击上方按钮创建</small></div>
-              : groups.map(g => (
-                <GroupItem key={g.id} group={g}
-                  onClick={() => openChat(g.id, 1, g.name, g.avatar_url)}
-                />
-              ))
-            }
+            <div className="groups-sub-tabs">
+              <button className={`groups-sub-tab${groupsSubTab === 'joined' ? ' active' : ''}`}
+                onClick={() => setGroupsSubTab('joined')}>我加入的群聊</button>
+              <button className={`groups-sub-tab${groupsSubTab === 'created' ? ' active' : ''}`}
+                onClick={() => setGroupsSubTab('created')}>
+                我创建的群聊
+                {totalPending > 0 && <span className="group-tab-badge">{totalPending > 99 ? '99+' : totalPending}</span>}
+              </button>
+            </div>
+
+            {groupsSubTab === 'joined' && (
+              joinedGroups.length === 0
+                ? <div className="sidebar-empty">没有加入的群聊</div>
+                : joinedGroups.map(g => (
+                  <JoinedGroupItem key={g.id} group={g}
+                    onClick={() => openChat(g.id, 1, g.name, g.avatar_url)}
+                  />
+                ))
+            )}
+
+            {groupsSubTab === 'created' && (
+              <>
+                <button className="create-group-btn" onClick={() => setShowCreateGroup(true)}>＋ 创建群聊</button>
+                {ownedGroups.length === 0
+                  ? <div className="sidebar-empty">还没有创建的群聊<br /><small>点击上方按钮创建</small></div>
+                  : ownedGroups.map(g => {
+                    const key = String(g.id);
+                    const pendingList = groupJoinRequests[key] || [];
+                    const pendingCount = pendingList.length;
+                    return (
+                      <OwnerGroupItem key={g.id} group={g}
+                        expanded={expandedGroups[key]}
+                        pendingCount={pendingCount}
+                        onToggle={() => toggleGroupExpand(g.id)}
+                        onClick={() => openChat(g.id, 1, g.name, g.avatar_url)}
+                      >
+                        {pendingList.length === 0
+                          ? <div className="group-requests-empty">暂无加入申请</div>
+                          : pendingList.map(req => (
+                            <div key={req.id} className="group-request-item">
+                              <Avatar src={req.avatar_url} name={req.nickname} size={28} />
+                              <div className="group-request-info">
+                                <div className="group-request-name">{req.nickname}</div>
+                                <div className="group-request-un">@{req.username}</div>
+                              </div>
+                              <div className="group-request-btns">
+                                <button className="btn-sm btn-primary"
+                                  disabled={processingRequest[req.id]}
+                                  onClick={() => handleJoinRequest(req.id, g.id, 'accept')}>同意</button>
+                                <button className="btn-sm btn-ghost"
+                                  disabled={processingRequest[req.id]}
+                                  onClick={() => handleJoinRequest(req.id, g.id, 'reject')}>拒绝</button>
+                              </div>
+                            </div>
+                          ))
+                        }
+                      </OwnerGroupItem>
+                    );
+                  })
+                }
+              </>
+            )}
           </>
         )}
       </div>
 
-      {showSearch && (
-        <SearchModal onClose={() => setShowSearch(false)} friends={friends}
+      {showSearchUser && (
+        <SearchUserPage onClose={() => setShowSearchUser(false)} friends={friends}
+          onRefresh={() => loadAllRef.current()} />
+      )}
+      {showCreateGroup && (
+        <CreateGroupPage onClose={() => setShowCreateGroup(false)} friends={friends}
           onRefresh={() => loadAllRef.current()} />
       )}
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}

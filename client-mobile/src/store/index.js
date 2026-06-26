@@ -233,6 +233,9 @@ export const useChatStore = create((set, get) => ({
   addFriendRequest: (req) => set(state => ({ friendRequests: [req, ...state.friendRequests] })),
   removeFriendRequest: (id) => set(state => ({ friendRequests: state.friendRequests.filter(r => r.id !== id) })),
 
+  groupJoinRequests: {},
+  setGroupJoinRequests: (reqs) => set({ groupJoinRequests: reqs }),
+
   groups: profileCache.getGroups(),
   setGroups: (groups) => {
     profileCache.setGroups(groups);
@@ -293,6 +296,7 @@ export const useChatStore = create((set, get) => ({
     friends: profileCache.getFriends(),
     friendRequests: [],
     groups: profileCache.getGroups(),
+    groupJoinRequests: {},
     onlineUsers: new Set(),
     onlineStatuses: new Map(),
     typing: {},

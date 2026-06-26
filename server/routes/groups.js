@@ -1,7 +1,6 @@
 ﻿const express = require('express');
 const { pool } = require('../db/index');
 const { authMiddleware } = require('../middleware/auth');
-
 const router = express.Router();
 
 let _io = null;
@@ -54,15 +53,25 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 router.post('/', authMiddleware, async (req, res) => {
-  const { name, memberIds, avatar_url } = req.body;
+  const { name, memberIds, avatar_url, groupId } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Group name is required' });
+  if (groupId && !groupId.trim()) return res.status(400).json({ error: '群号不能为空' });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    if (groupId?.trim()) {
+      const dup = await client.query('SELECT id FROM groups WHERE group_id = $1', [groupId.trim()]);
+      if (dup.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: '群号已存在' });
+      }
+    }
+
     const groupResult = await client.query(
-      'INSERT INTO groups (name, owner_id, avatar_url) VALUES ($1, $2, $3) RETURNING *',
-      [name.trim(), req.userId, avatar_url || '']
+      'INSERT INTO groups (name, owner_id, avatar_url, group_id) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name.trim(), req.userId, avatar_url || '', groupId?.trim() || null]
     );
     const group = groupResult.rows[0];
 
@@ -109,6 +118,115 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/search', authMiddleware, async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.json([]);
+  try {
+    const result = await pool.query(
+      `SELECT g.*, (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS member_count,
+        EXISTS(SELECT 1 FROM group_members WHERE group_id = g.id AND user_id = $2) AS is_member
+       FROM groups g
+       WHERE g.group_id ILIKE $1
+       ORDER BY g.name
+       LIMIT 20`,
+      [`%${q}%`, req.userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('[groups:search]', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/join-requests', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT jr.id, jr.group_id, jr.user_id, jr.status, jr.created_at,
+              u.username, u.nickname, u.avatar_url,
+              g.name AS group_name, g.group_id AS group_code
+       FROM group_join_requests jr
+       JOIN users u ON u.id = jr.user_id
+       JOIN groups g ON g.id = jr.group_id
+       WHERE g.owner_id = $1 AND jr.status = 0
+       ORDER BY jr.created_at DESC`,
+      [req.userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('[groups:join-requests]', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.put('/join-requests/:requestId', authMiddleware, async (req, res) => {
+  const { action } = req.body;
+  if (!['accept', 'reject'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const reqResult = await client.query(
+      `SELECT jr.*, g.owner_id, g.name
+       FROM group_join_requests jr
+       JOIN groups g ON g.id = jr.group_id
+       WHERE jr.id = $1 AND jr.status = 0`,
+      [req.params.requestId]
+    );
+    if (reqResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Request not found' });
+    }
+    const jr = reqResult.rows[0];
+    if (Number(jr.owner_id) !== Number(req.userId)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+
+    if (action === 'accept') {
+      await client.query(
+        'INSERT INTO group_members (group_id, user_id, role) VALUES ($1, $2, 0) ON CONFLICT DO NOTHING',
+        [jr.group_id, jr.user_id]
+      );
+      await client.query(
+        `INSERT INTO conversations (user_id, target_id, type, group_state)
+         VALUES ($1, $2, 1, 'active')
+         ON CONFLICT (user_id, target_id, type) DO UPDATE SET group_state = 'active'`,
+        [jr.user_id, jr.group_id]
+      );
+      if (_io) {
+        const countRes = await client.query('SELECT COUNT(*) FROM group_members WHERE group_id = $1', [jr.group_id]);
+        _io.sockets.sockets.forEach(socket => {
+          if (String(socket.userId) === String(jr.user_id)) {
+            socket.join(`group:${jr.group_id}`);
+            socket.emit('group:created', {
+              group: { id: jr.group_id, name: jr.name, member_count: Number(countRes.rows[0].count), role: 0 },
+              by: 'admin',
+            });
+          }
+        });
+      }
+    }
+
+    await client.query('UPDATE group_join_requests SET status = $1 WHERE id = $2',
+      [action === 'accept' ? 1 : 2, req.params.requestId]);
+
+    const remaining = await client.query(
+      'SELECT COUNT(*) FROM group_join_requests WHERE group_id = $1 AND status = 0',
+      [jr.group_id]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'ok', groupId: jr.group_id, pendingCount: Number(remaining.rows[0].count) });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[groups:handle-join-request]', err);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
+
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const memberRole = await getMemberRole(req.params.id, req.userId);
@@ -128,6 +246,67 @@ router.get('/:id', authMiddleware, async (req, res) => {
     res.json({ ...groupResult.rows[0], members: membersResult.rows });
   } catch (err) {
     console.error('[groups:get]', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/:id/join-request', authMiddleware, async (req, res) => {
+  try {
+    const isMember = await pool.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    );
+    if (isMember.rows.length > 0) return res.status(400).json({ error: '你已在该群中' });
+
+    const existing = await pool.query(
+      'SELECT id, status FROM group_join_requests WHERE group_id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    );
+    if (existing.rows.length > 0) {
+      if (existing.rows[0].status === 0) return res.status(400).json({ error: '已发送过申请' });
+      await pool.query('UPDATE group_join_requests SET status = 0, created_at = NOW() WHERE id = $1', [existing.rows[0].id]);
+    } else {
+      await pool.query(
+        'INSERT INTO group_join_requests (group_id, user_id) VALUES ($1, $2)',
+        [req.params.id, req.userId]
+      );
+    }
+
+    const groupRes = await pool.query('SELECT id, name, owner_id FROM groups WHERE id = $1', [req.params.id]);
+    const group = groupRes.rows[0];
+
+    if (_io && group) {
+      _io.sockets.sockets.forEach(socket => {
+        if (String(socket.userId) === String(group.owner_id)) {
+          socket.emit('group:join-request', { groupId: Number(req.params.id), groupName: group.name });
+        }
+      });
+    }
+
+    res.json({ message: '申请已发送' });
+  } catch (err) {
+    console.error('[groups:join-request]', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/:id/join-requests', authMiddleware, async (req, res) => {
+  try {
+    const group = await pool.query('SELECT owner_id FROM groups WHERE id = $1', [req.params.id]);
+    if (!group.rows.length) return res.status(404).json({ error: 'Group not found' });
+    if (Number(group.rows[0].owner_id) !== Number(req.userId)) return res.status(403).json({ error: 'Permission denied' });
+
+    const result = await pool.query(
+      `SELECT jr.id, jr.user_id, jr.status, jr.created_at, u.username, u.nickname, u.avatar_url
+       FROM group_join_requests jr
+       JOIN users u ON u.id = jr.user_id
+       WHERE jr.group_id = $1 AND jr.status = 0
+       ORDER BY jr.created_at DESC`,
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('[groups:group-join-requests]', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

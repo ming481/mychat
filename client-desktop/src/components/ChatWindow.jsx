@@ -869,9 +869,9 @@ export default function ChatWindow() {
       <div className="chat-navbar">
         <button className="chat-back-btn" type="button" onClick={() => { setPositionedKey(null); setActiveChat(null); }}>{T.back}</button>
         <div className="chat-navbar-title">
-          {activeChat.name}
-          {isReadOnlyChat && <span className="chat-typing-hint"> {groupStateText}</span>}
-          {!isReadOnlyChat && isTyping && <span className="chat-typing-hint"> {T.typing}</span>}
+          <span className="chat-navbar-name">{activeChat.name}</span>
+          {isReadOnlyChat && <span className="chat-typing-hint">{groupStateText}</span>}
+          {!isReadOnlyChat && isTyping && <span className="chat-typing-hint">{T.typing}</span>}
         </div>
         {activeChat.type === 1 && !isReadOnlyChat && (
           <button className="chat-detail-btn" type="button" onClick={() => setShowDetail(value => !value)} title="\u7fa4\u804a\u4fe1\u606f">...</button>

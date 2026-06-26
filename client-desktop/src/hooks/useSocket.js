@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { useAuthStore, useChatStore } from '../store';
 import { localMessageCache } from '../utils/localMessageCache';
 import { profileCache } from '../utils/profileCache';
-import { messageAPI } from '../utils/api';
+import { groupAPI, messageAPI } from '../utils/api';
 
 let socketInstance = null;
 export function getSocket() { return socketInstance; }
@@ -226,6 +226,18 @@ export function useSocket() {
 
     socket.on('friend:request', (reqInfo) => {
       useChatStore.getState().addFriendRequest(reqInfo);
+    });
+
+    socket.on('group:join-request', () => {
+      groupAPI.joinRequests().then(data => {
+        const map = {};
+        (Array.isArray(data) ? data : []).forEach(req => {
+          const gid = String(req.group_id);
+          if (!map[gid]) map[gid] = [];
+          map[gid].push(req);
+        });
+        useChatStore.getState().setGroupJoinRequests(map);
+      }).catch(() => {});
     });
 
     socket.on('friend:accepted', async () => {

@@ -28,6 +28,7 @@ export default function GroupDetailPanel({ group, currentUserId, onClose, onUpda
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(group.name);
   const [isUploading, setIsUploading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const myRole = group.members?.find(m => String(m.id) === String(currentUserId))?.role ?? 0;
   const isOwner = myRole === 2;
@@ -144,6 +145,13 @@ export default function GroupDetailPanel({ group, currentUserId, onClose, onUpda
   const memberIds = new Set(group.members?.map(m => String(m.id)) || []);
   const invitableFriends = friends.filter(f => !memberIds.has(String(f.id)));
 
+  function handleCopyGroupId() {
+    navigator.clipboard.writeText(group.group_id).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
+
   return (
     <div className="group-detail-panel">
       <div className="group-detail-header">
@@ -185,6 +193,16 @@ export default function GroupDetailPanel({ group, currentUserId, onClose, onUpda
             <div className="gdp-group-count">{group.members?.length || 0} 名成员</div>
           </div>
         </div>
+
+        {group.group_id && (
+          <div className="gdp-section" style={{ padding: '8px 16px' }}>
+            <div className="gdp-section-title" style={{ marginBottom: 4 }}>群号</div>
+            <div className="gdp-group-id-row">
+              <span className="gdp-group-id-value">{group.group_id}</span>
+              <button className={`gdp-group-id-copy-btn${copied ? ' copied' : ''}`} onClick={handleCopyGroupId}>{copied ? '已复制' : '复制'}</button>
+            </div>
+          </div>
+        )}
 
         <div className="gdp-section">
           <div className="gdp-section-title">

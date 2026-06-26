@@ -136,6 +136,11 @@ export const groupAPI = {
   setAdmin:           (id, uid, act)  => api.put(`/groups/${id}/admin/${uid}`, { action: act }),
   updateAnnouncement: (id, text)      => api.put(`/groups/${id}/announcement`, { announcement: text }),
   updateInfo:         (id, data)      => api.put(`/groups/${id}/info`, data),
+  search:             (q)             => api.get(`/groups/search?q=${encodeURIComponent(q)}`),
+  joinRequest:        (id)            => api.post(`/groups/${id}/join-request`),
+  joinRequests:       ()              => api.get('/groups/join-requests'),
+  handleJoinRequest:  (requestId, action) => api.put(`/groups/join-requests/${requestId}`, { action }),
+  groupJoinRequests:  (groupId)       => api.get(`/groups/${groupId}/join-requests`),
 };
 
 

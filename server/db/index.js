@@ -41,8 +41,18 @@ CREATE TABLE IF NOT EXISTS groups (
   name VARCHAR(100) NOT NULL,
   avatar_url TEXT DEFAULT '',
   owner_id INTEGER NOT NULL REFERENCES users(id),
+  group_id VARCHAR(50),
   announcement TEXT DEFAULT '',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS group_join_requests (
+  id SERIAL PRIMARY KEY,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  status INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(group_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS group_members (
@@ -134,6 +144,8 @@ async function initDB() {
     await client.query("ALTER TABLE conversations ADD COLUMN IF NOT EXISTS group_state VARCHAR(20) DEFAULT 'active'");
     await client.query("ALTER TABLE conversations ADD COLUMN IF NOT EXISTS target_name_snapshot TEXT DEFAULT ''");
     await client.query("ALTER TABLE conversations ADD COLUMN IF NOT EXISTS target_avatar_snapshot TEXT DEFAULT ''");
+    await client.query("ALTER TABLE groups ADD COLUMN IF NOT EXISTS group_id VARCHAR(50)");
+    await client.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_group_id ON groups(group_id)");
     await client.query("UPDATE conversations SET group_state = 'active' WHERE group_state IS NULL");
     await client.query(`
       INSERT INTO message_deliveries (message_id, user_id)

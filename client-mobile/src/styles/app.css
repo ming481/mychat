@@ -815,7 +815,7 @@ html, body {
   margin: 12px 20px;
   border: 1px solid var(--border);
 }
-.modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 0 0; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 8px 0 0; }
 
 /* ─── Search ─────────────────────────────────────────────────── */
 .search-bar { display: flex; gap: 8px; padding: 14px 20px; }
@@ -864,7 +864,7 @@ html, body {
 .search-page {
   width: 100vw;
   max-width: none;
-  height: 100dvh;
+  height: 100vh;
   max-height: none;
   margin: 0;
   border: none;
@@ -895,12 +895,10 @@ html, body {
 .search-page .create-group {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
 }
 .search-page .friend-select-list {
-  flex: 1;
-  min-height: 0;
+  height: 400px;
   max-height: none;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -908,6 +906,7 @@ html, body {
 .search-page .modal-actions {
   padding-bottom: calc(16px + var(--mobile-safe-bottom));
 }
+
 
 .profile-avatar-section {
   display: flex; flex-direction: column; align-items: center;
@@ -970,6 +969,60 @@ html, body {
 @media (hover: hover) { .friend-select-item:hover { background: var(--bg-hover); } }
 .friend-select-item input { accent-color: var(--accent); width: 15px; height: 15px; }
 
+/* ─── Groups sub-tabs ──────────────────────────────────────── */
+.groups-sub-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1.5px solid var(--border);
+  margin: 0;
+}
+.groups-sub-tab {
+  flex: 1; padding: 10px 12px;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  font-size: 13px; font-family: var(--font); font-weight: 600;
+  color: var(--text-muted); cursor: pointer;
+  transition: all var(--transition); position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+}
+.groups-sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.group-pending-badge {
+  background: #3b82f6; color: #fff;
+  font-size: 11px; font-weight: 700;
+  min-width: 20px; height: 20px; line-height: 20px;
+  text-align: center; border-radius: 10px; padding: 0 5px;
+}
+.group-tab-badge {
+  background: #ef4444; color: #fff;
+  font-size: 10px; font-weight: 700;
+  min-width: 18px; height: 18px; line-height: 18px;
+  text-align: center; border-radius: 9px; padding: 0 4px;
+}
+.group-expand-btn {
+  padding: 4px 10px; font-size: 12px; font-family: var(--font);
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer;
+  transition: all var(--transition); white-space: nowrap;
+}
+@media (hover: hover) { .group-expand-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); } }
+
+.group-requests-panel {
+  padding: 0 12px 8px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+.group-requests-empty {
+  padding: 12px 16px; font-size: 13px; color: var(--text-muted); text-align: center;
+}
+.group-request-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 6px; border-bottom: 1px solid var(--border);
+}
+.group-request-item:last-child { border-bottom: none; }
+.group-request-info { flex: 1; }
+.group-request-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.group-request-un { font-size: 11px; color: var(--text-muted); }
+.group-request-btns { display: flex; gap: 6px; flex-shrink: 0; }
+
 /* ─── Group Detail Panel ─────────────────────────────────────── */
 .group-detail-panel {
   position: absolute; top: 0; right: 0;
@@ -1002,6 +1055,31 @@ html, body {
 }
 .gdp-group-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
 .gdp-group-count { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.gdp-group-id-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+.gdp-group-id-value {
+  font-size: 18px;
+  font-weight: 400;
+  color: #000;
+}
+.gdp-group-id-copy-btn {
+  padding: 4px 14px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+.gdp-group-id-copy-btn:hover { background: var(--accent); color: #fff; }
+.gdp-group-id-copy-btn.copied { background: var(--accent); color: #fff; }
 
 .gdp-section { padding: 11px 16px; border-bottom: 1px solid var(--border); }
 .gdp-section-title {
@@ -1155,7 +1233,7 @@ html, body {
   }
   .search-page-overlay .search-page {
     width: 100vw;
-    height: 100dvh;
+    height: 100vh;
     max-height: none;
     margin: 0;
     border-radius: 0;
@@ -1279,19 +1357,29 @@ html, body {
 
 .chat-navbar-title {
   flex: 1;
-  font-size: 15px;
-  font-weight: 700;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.chat-navbar-name {
+  font-size: 17px;
+  font-weight: 550;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 1;
 }
 
 .chat-typing-hint {
   font-size: 12px;
   font-weight: 400;
   color: var(--accent);
-  margin-left: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .chat-detail-btn {
@@ -1578,19 +1666,29 @@ html.keyboard-open .mobile-message-list {
 /* ─── 移动端适配 ──────────────────────────────────────────── */
 @media (max-width: 768px) {
   .chat-navbar {
-    height: calc(56px + var(--chat-safe-top));
+    height: calc(51px + var(--chat-safe-top));
     padding-top: var(--chat-safe-top);
+    padding-bottom: 4px;
     padding-left: 14px;
     padding-right: 14px;
   }
+  .chat-navbar-title {
+    margin-top: 5px;
+  }
+  .chat-typing-hint {
+    font-size: 11px;
+  }
   .chat-back-btn {
-    min-height: 42px;
-    padding: 7px 12px;
-    font-size: 13px;
+    margin-top: 8.5px;
+    min-height: 35px;
+    padding: 4px 12px;
+    font-size: 12px;
   }
   .chat-detail-btn {
-    width: 42px;
-    height: 42px;
+    margin-top: 8.5px;
+    width: 35px;
+    height: 35px;
+    font-size: 16px;
   }
   .custom-composer {
     padding: 10px 12px calc(12px + var(--chat-safe-bottom));
