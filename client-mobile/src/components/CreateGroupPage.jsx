@@ -23,19 +23,51 @@ export default function CreateGroupPage({ onClose, friends, onRefresh }) {
   const [msg, setMsg] = useState('');
   const inputRef = useRef(null);
 
+  // On native Android, switch to adjustNothing so the keyboard overlays instead of
+  // compressing the layout. This MUST be awaited before auto-focusing the input:
+  //  - setResizeMode is asynchronous (it crosses the JS->native bridge).
+  //  - The previous code used setTimeout(0) to focus the input, which can fire
+  //    BEFORE the resize mode is actually applied on the native side.
+  //  - When that happens, the keyboard opens in the default 'native' (adjustResize)
+  //    mode, the .friend-select-list (height: 400px) gets squeezed, the .create-group
+  //    container reflows, and the focused input can be scrolled out of view. Android
+  //    then drops focus on the input and the keyboard auto-retracts — exactly the
+  //    "有时会挤压下方的好友列表等区域，然后键盘又自动回收" symptom the user reported.
   useEffect(() => {
-    const timer = setTimeout(() => {
+    let cancelled = false;
+    async function setupKeyboardAndFocus() {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await Keyboard.setResizeMode({ mode: 'none' });
+        } catch (_) { /* ignore — fall through to focus anyway */ }
+      }
+      if (cancelled) return;
+      // Only auto-focus after the resize mode is confirmed, so the keyboard opens
+      // in 'none' mode and the layout below is not squeezed.
       inputRef.current?.focus();
-    }, 0);
-    return () => clearTimeout(timer);
+    }
+    setupKeyboardAndFocus();
+    return () => {
+      cancelled = true;
+      if (Capacitor.isNativePlatform()) {
+        Keyboard.setResizeMode({ mode: 'native' }).catch(() => {});
+      }
+    };
   }, []);
 
-  // On native Android, switch to adjustNothing so keyboard overlays instead of compressing
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    Keyboard.setResizeMode({ mode: 'none' });
-    return () => { Keyboard.setResizeMode({ mode: 'native' }); };
-  }, []);
+  // When an input gains focus, scroll it into the visible area. With resize mode
+  // 'none' the keyboard overlays the page, so without this the input can be hidden
+  // behind the keyboard and the user cannot see what they are typing.
+  const handleInputFocus = (e) => {
+    const el = e.target;
+    // Defer to the next animation frame so the keyboard has time to begin its
+    // open animation, which is when the visualViewport actually shifts.
+    requestAnimationFrame(() => {
+      try {
+        el.scrollIntoView({ block: 'center', behavior: 'auto' });
+      } catch (_) { /* ignore */ }
+    });
+  };
 
   async function createGroup() {
     if (!groupName.trim()) return setMsg('请输入群名称');
@@ -66,6 +98,7 @@ export default function CreateGroupPage({ onClose, friends, onRefresh }) {
               ref={inputRef}
               value={groupName}
               onChange={e => setGroupName(e.target.value)}
+              onFocus={handleInputFocus}
               placeholder="给群起个名字"
               style={{ padding: '10px 14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' }}
             />
@@ -75,6 +108,7 @@ export default function CreateGroupPage({ onClose, friends, onRefresh }) {
             <input
               value={groupId}
               onChange={e => setGroupId(e.target.value)}
+              onFocus={handleInputFocus}
               placeholder="输入群号，用于搜索加群"
               style={{ padding: '10px 14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' }}
             />

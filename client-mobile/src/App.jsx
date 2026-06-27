@@ -64,6 +64,16 @@ function AppLayout() {
     // even when adjustResize shrinks the viewport (fix for CreateGroupPage overlay)
     let closedVpHeight = vp?.height || window.innerHeight;
 
+    // Track the last time an input/textarea/contentEditable gained focus.
+    // This is used to suppress the "blur on viewport grow" heuristic below when
+    // the user is actively focusing a new input — e.g. clicking "输入群号" right
+    // after clicking a friend-list checkbox. During that transition the
+    // visualViewport can momentarily grow (old keyboard dismissing) by more than
+    // 100px, which previously triggered focused.blur() and caused the keyboard
+    // to auto-retract immediately after opening.
+    let lastFocusInAt = 0;
+    const FOCUS_GUARD_MS = 600;
+
     function syncKeyboardOpen() {
       if (!vp) return;
       const prev = vpHeight;
@@ -73,9 +83,17 @@ function AppLayout() {
         // Keyboard was dismissed, save restored height
         closedVpHeight = vp.height;
         document.documentElement.style.setProperty('--full-vh', `${closedVpHeight}px`);
-        // Keyboard was dismissed (e.g. Android IME back), blur any focused input
+        // Keyboard was dismissed (e.g. Android IME back), blur any focused input.
+        // BUT: skip the blur if the user focused an input very recently — that
+        // means the viewport grow is a transient side-effect of the keyboard
+        // switching between inputs (or between a checkbox and a text input),
+        // not the user actually dismissing the keyboard. The Android back
+        // button handler above still blurs explicitly for the real back-button
+        // case, so we don't lose that behavior.
         const focused = document.activeElement;
-        if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.isContentEditable)) {
+        const isInputFocused = focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.isContentEditable);
+        const recentlyFocused = (Date.now() - lastFocusInAt) < FOCUS_GUARD_MS;
+        if (isInputFocused && !recentlyFocused) {
           focused.blur();
         }
         document.documentElement.classList.remove('keyboard-open');
@@ -92,6 +110,9 @@ function AppLayout() {
     function onFocusIn(e) {
       const tag = e.target && e.target.tagName && e.target.tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
+        // Record the timestamp so syncKeyboardOpen can avoid blurring during
+        // an active focus transition.
+        lastFocusInAt = Date.now();
         document.documentElement.classList.add('keyboard-open');
         document.documentElement.style.setProperty('--full-vh', `${closedVpHeight}px`);
       }
