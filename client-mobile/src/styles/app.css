@@ -897,12 +897,7 @@ html, body {
   min-height: 0;
   overflow-y: auto;
 }
-.search-page .friend-select-list {
-  /* 固定 400px 高度：多了页内滚动，少了留下空白，整个页面铺满更匀称。
-     这在 Keyboard.setResizeMode({ mode: 'none' }) 生效后是安全的 ——
-     键盘以 overlay 方式覆盖页面，不再挤压布局，因此固定高度不会引发
-     输入框失焦/键盘自动回收的问题。页面级滚动（.create-group 容器）
-     负责把动作按钮等下方内容滚动到可视区。 */
+.search-page .friend-select-list {  
   height: 400px;
   max-height: none;
   overflow-y: auto;
