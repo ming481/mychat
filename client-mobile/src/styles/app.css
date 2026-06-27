@@ -897,7 +897,7 @@ html, body {
   min-height: 0;
   overflow-y: auto;
 }
-.search-page .friend-select-list {  
+.search-page .friend-select-list {
   height: 400px;
   max-height: none;
   overflow-y: auto;
