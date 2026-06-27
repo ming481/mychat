@@ -170,6 +170,20 @@ export const useChatStore = create((set, get) => ({
       if (next.is_recalled == null && (next.last_message_id || next.last_content != null || next.last_msg_type != null)) {
         next.is_recalled = false;
       }
+      if (conv.type === 0) {
+        const friend = get().friends.find(f => String(f.id) === String(conv.target_id));
+        if (friend) {
+          if (!next.target_name) next.target_name = friend.nickname || friend.username;
+          if (!next.target_avatar) next.target_avatar = friend.avatar_url;
+          if (next.target_status == null) next.target_status = friend.status || 0;
+        }
+      } else if (conv.type === 1) {
+        const group = get().groups.find(g => String(g.id) === String(conv.target_id));
+        if (group) {
+          if (!next.target_name) next.target_name = group.name;
+          if (!next.target_avatar) next.target_avatar = group.avatar_url;
+        }
+      }
       set({ conversations: [next, ...list] });
     }
   },
