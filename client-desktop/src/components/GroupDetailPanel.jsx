@@ -161,7 +161,7 @@ export default function GroupDetailPanel({ group, currentUserId, onClose, onUpda
 
       <div className="gdp-body">
         <div className="gdp-group-info">
-          <div style={{ position: 'relative' }}>
+          <div className="gdp-avatar-wrap">
             <Avatar src={group.avatar_url} name={group.name} size={52} />
             {isAdmin && (
               <label className="gdp-avatar-edit-overlay" title="修改头像">

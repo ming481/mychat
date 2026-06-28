@@ -973,7 +973,7 @@ html, body {
 /* ─── Create group ───────────────────────────────────────────── */
 .friend-select-title { font-size: 12px; color: var(--text-muted); margin-bottom: 7px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .friend-select-list {
-  height: 230px; overflow-y: auto;
+  height: 330px; overflow-y: auto;
   border: 1.5px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px;
   background: var(--bg-tertiary);
 }
@@ -1165,7 +1165,8 @@ html, body {
   border-radius: 50%; color: #fff; font-size: 14px;
   opacity: 0; cursor: pointer; transition: opacity var(--transition);
 }
-.gdp-group-info:hover .gdp-avatar-edit-overlay { opacity: 1; }
+.gdp-avatar-wrap { position: relative; border-radius: 50%; }
+.gdp-avatar-wrap:hover .gdp-avatar-edit-overlay { opacity: 1; }
 
 .gdp-name-row { display: flex; align-items: center; gap: 6px; }
 .gdp-name-edit-btn {
