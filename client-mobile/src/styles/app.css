@@ -815,7 +815,7 @@ html, body {
   margin: 12px 20px;
   border: 1px solid var(--border);
 }
-.modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 8px 0 0; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 4px 0 0; }
 
 /* ─── Search ─────────────────────────────────────────────────── */
 .search-bar { display: flex; gap: 8px; padding: 14px 20px; }
@@ -904,7 +904,7 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 .search-page .modal-actions {
-  padding-bottom: calc(16px + var(--mobile-safe-bottom));
+  padding-bottom: calc(8px + var(--mobile-safe-bottom));
 }
 
 
@@ -1248,7 +1248,7 @@ html, body {
     padding-bottom: calc(20px + var(--mobile-safe-bottom));
   }
   .search-page-overlay .modal-actions {
-    padding-bottom: calc(16px + var(--mobile-safe-bottom));
+    padding-bottom: calc(6px + var(--mobile-safe-bottom));
   }
   .modal-overlay--profile {
     align-items: stretch;

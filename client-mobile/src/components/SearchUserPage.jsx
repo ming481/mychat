@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { userAPI, friendAPI, groupAPI } from '../utils/api';
 import { getSocket } from '../hooks/useSocket';
 import { handleAvatarError, useAvatarSrc } from '../utils/avatar';
@@ -21,14 +21,6 @@ export default function SearchUserPage({ onClose, friends, onRefresh }) {
   const [msg, setMsg] = useState('');
   const [requestedIds, setRequestedIds] = useState(new Set());
   const [appliedGroupIds, setAppliedGroupIds] = useState(new Set());
-  const inputRef = useRef(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
 
   async function searchUsers() {
     if (!q.trim()) return;
@@ -92,7 +84,6 @@ export default function SearchUserPage({ onClose, friends, onRefresh }) {
 
         <div className="search-bar">
           <input
-            ref={inputRef}
             value={q}
             onChange={e => setQ(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (tab === 'user' ? searchUsers() : searchGroups())}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Keyboard } from '@capacitor/keyboard';
 import { groupAPI } from '../utils/api';
@@ -21,53 +21,18 @@ export default function CreateGroupPage({ onClose, friends, onRefresh }) {
   const [selectedFriends, setSelectedFriends] = useState([]);
   const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState('');
-  const inputRef = useRef(null);
 
-  // On native Android, switch to adjustNothing so the keyboard overlays instead of
-  // compressing the layout. This MUST be awaited before auto-focusing the input:
-  //  - setResizeMode is asynchronous (it crosses the JS->native bridge).
-  //  - The previous code used setTimeout(0) to focus the input, which can fire
-  //    BEFORE the resize mode is actually applied on the native side.
-  //  - When that happens, the keyboard opens in the default 'native' (adjustResize)
-  //    mode, the .friend-select-list (height: 400px) gets squeezed, the .create-group
-  //    container reflows, and the focused input can be scrolled out of view. Android
-  //    then drops focus on the input and the keyboard auto-retracts — exactly the
-  //    "有时会挤压下方的好友列表等区域，然后键盘又自动回收" symptom the user reported.
+  // Android: 用 'none' 模式防止键盘挤压好友列表导致输入框丢焦；
+  // 同时不自动聚焦输入框，避免页面加载时卡顿。
   useEffect(() => {
-    let cancelled = false;
-    async function setupKeyboardAndFocus() {
-      if (Capacitor.isNativePlatform()) {
-        try {
-          await Keyboard.setResizeMode({ mode: 'none' });
-        } catch (_) { /* ignore — fall through to focus anyway */ }
-      }
-      if (cancelled) return;
-      // Only auto-focus after the resize mode is confirmed, so the keyboard opens
-      // in 'none' mode and the layout below is not squeezed.
-      inputRef.current?.focus();
-    }
-    setupKeyboardAndFocus();
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      Keyboard.setResizeMode({ mode: 'none' });
+    } catch (_) { /* ignore */ }
     return () => {
-      cancelled = true;
-      if (Capacitor.isNativePlatform()) {
-        Keyboard.setResizeMode({ mode: 'native' }).catch(() => {});
-      }
+      Keyboard.setResizeMode({ mode: 'native' }).catch(() => {});
     };
   }, []);
-
-  // When an input gains focus, scroll it into the visible area. With resize mode
-  // 'none' the keyboard overlays the page, so without this the input can be hidden
-  // behind the keyboard and the user cannot see what they are typing.
-  const handleInputFocus = (e) => {
-    const el = e.target;
-    // Defer to the next animation frame so the keyboard has time to begin its
-    // open animation, which is when the visualViewport actually shifts.
-    requestAnimationFrame(() => {
-      try {
-        el.scrollIntoView({ block: 'center', behavior: 'auto' });
-      } catch (_) { /* ignore */ }
-    });
-  };
 
   async function createGroup() {
     if (!groupName.trim()) return setMsg('请输入群名称');
@@ -83,6 +48,36 @@ export default function CreateGroupPage({ onClose, friends, onRefresh }) {
     finally { setCreating(false); }
   }
 
+  // 用 useMemo 缓存好友列表 DOM，checkbox 切换时不会重新渲染整个列表，
+  // 避免列表 reflow 传递到紧邻的输入框导致键盘回收。
+  // checkbox 使用 defaultChecked（非受控），保持 DOM 稳定。
+  const friendRows = useMemo(() => {
+    if (friends.length === 0) {
+      return <div style={{ padding: '16px', color: 'var(--text-muted)', textAlign: 'center', fontSize: 13 }}>还没有好友，先去添加吧</div>;
+    }
+    return friends.map(f => (
+      <label key={f.id} className="friend-select-item">
+        <input
+          type="checkbox"
+          tabIndex={-1}
+          defaultChecked={selectedFriends.includes(f.id)}
+          onChange={e => {
+            const cb = e.target;
+            cb.checked = e.target.checked;
+            // 立即 blur，防止 checkbox 持焦导致后续点击输入框时键盘回收
+            cb.blur();
+            setSelectedFriends(p =>
+              cb.checked ? [...p, f.id] : p.filter(id => id !== f.id)
+            );
+          }}
+        />
+        <Avatar src={f.avatar_url} name={f.nickname} size={28} />
+        <span>{f.remark || f.nickname}</span>
+      </label>
+    ));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friends]);
+
   return (
     <div className="modal-overlay search-page-overlay create-group-page-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box search-page">
@@ -91,47 +86,30 @@ export default function CreateGroupPage({ onClose, friends, onRefresh }) {
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
-        <div className="create-group" style={{ padding: '16px 20px 20px' }}>
-          <div className="auth-field" style={{ marginBottom: 16 }}>
+        <div className="create-group" style={{ padding: '12px 20px 12px' }}>
+          <div className="auth-field" style={{ marginBottom: 8 }}>
             <label>群聊名称</label>
             <input
-              ref={inputRef}
               value={groupName}
               onChange={e => setGroupName(e.target.value)}
-              onFocus={handleInputFocus}
               placeholder="给群起个名字"
-              style={{ padding: '10px 14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' }}
+              style={{ padding: '9px 14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' }}
             />
           </div>
-          <div className="auth-field" style={{ marginBottom: 16 }}>
+          <div className="auth-field" style={{ marginBottom: 8 }}>
             <label>输入群号</label>
             <input
               value={groupId}
               onChange={e => setGroupId(e.target.value)}
-              onFocus={handleInputFocus}
               placeholder="输入群号，用于搜索加群"
-              style={{ padding: '10px 14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' }}
+              style={{ padding: '9px 14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' }}
             />
           </div>
+          {/* 缓冲层：隔离输入框与好友列表的布局域，防止列表 reflow 传递到输入框 */}
+          <div style={{ flexShrink: 0, height: 12 }} />
           <div className="friend-select-title">选择好友加入群聊（已选 {selectedFriends.length} 人）</div>
           <div className="friend-select-list">
-            {friends.length === 0
-              ? <div style={{ padding: '16px', color: 'var(--text-muted)', textAlign: 'center', fontSize: 13 }}>还没有好友，先去添加吧</div>
-              : friends.map(f => (
-                <label key={f.id} className="friend-select-item">
-                  <input
-                    type="checkbox"
-                    checked={selectedFriends.includes(f.id)}
-                    onChange={e => {
-                      if (e.target.checked) setSelectedFriends(p => [...p, f.id]);
-                      else setSelectedFriends(p => p.filter(id => id !== f.id));
-                    }}
-                  />
-                  <Avatar src={f.avatar_url} name={f.nickname} size={28} />
-                  <span>{f.remark || f.nickname}</span>
-                </label>
-              ))
-            }
+            {friendRows}
           </div>
           {msg && <div className="search-msg">{msg}</div>}
           <div className="modal-actions">
