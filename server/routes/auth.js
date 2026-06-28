@@ -106,11 +106,13 @@ router.post('/change-password', authMiddleware, async (req, res) => {
     if (!valid) return res.status(400).json({ error: '原密码错误' });
 
     const hash = await bcrypt.hash(newPassword, 10);
-    await pool.query(
-      'UPDATE users SET password_hash = $1, token_version = COALESCE(token_version, 0) + 1 WHERE id = $2',
+    const updateResult = await pool.query(
+      'UPDATE users SET password_hash = $1, token_version = COALESCE(token_version, 0) + 1 WHERE id = $2 RETURNING token_version',
       [hash, req.userId]
     );
-    res.json({ message: '密码修改成功' });
+    const newTokenVersion = updateResult.rows[0].token_version;
+    const newToken = generateToken(req.userId, newTokenVersion);
+    res.json({ message: '密码修改成功', token: newToken });
   } catch (err) {
     res.status(500).json({ error: '服务器错误' });
   }

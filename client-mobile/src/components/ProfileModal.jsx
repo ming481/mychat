@@ -46,7 +46,8 @@ export default function ProfileModal({ onClose }) {
     setLoading(true);
     setMsg('');
     try {
-      await authAPI.changePassword({ oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword });
+      const res = await authAPI.changePassword({ oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword });
+      if (res.token) localStorage.setItem('token', res.token);
       setMsg('密码修改成功');
       setPwForm({ oldPassword: '', newPassword: '', confirm: '' });
     } catch (err) {

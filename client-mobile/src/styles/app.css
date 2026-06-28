@@ -1078,7 +1078,8 @@ html, body {
   transition: all var(--transition);
   flex-shrink: 0;
 }
-.gdp-group-id-copy-btn:hover { background: var(--accent); color: #fff; }
+@media (hover: hover) { .gdp-group-id-copy-btn:hover { background: var(--accent); color: #fff; } }
+.gdp-group-id-copy-btn:active { background: var(--accent); color: #fff; }
 .gdp-group-id-copy-btn.copied { background: var(--accent); color: #fff; }
 
 .gdp-section { padding: 11px 16px; border-bottom: 1px solid var(--border); }
