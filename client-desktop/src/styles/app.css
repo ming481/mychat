@@ -43,20 +43,13 @@ html, body {
   height: 100vh;
   height: 100dvh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 12px;
-  background: #f4f6f9;
+  overflow: hidden;
+  background: #000;
 }
-.app-startup-logo {
-  font-size: 30px;
-  font-weight: 800;
-  color: var(--accent);
-}
-.app-startup-text {
-  color: var(--text-secondary);
-  font-size: 14px;
+.app-startup-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ─── Layout ─────────────────────────────────────────────────── */

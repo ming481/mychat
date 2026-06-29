@@ -5,6 +5,8 @@ const path = require('path');
 const isDev = !app.isPackaged;
 const settingsFile = () => path.join(app.getPath('userData'), 'chat-settings.json');
 let mainWindow = null;
+let splashWindow = null;
+let splashCreatedTime = 0;
 let tray = null;
 let isQuitting = false;
 const activeNotifications = new Set();
@@ -17,7 +19,11 @@ function clearNotifications() {
 }
 
 function showMainWindow() {
-  if (!mainWindow) createWindow();
+  if (!mainWindow) createMainWindow();
+  if (splashWindow) {
+    splashWindow.destroy();
+    splashWindow = null;
+  }
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
   mainWindow.focus();
@@ -258,12 +264,29 @@ function registerSettingsHandlers() {
   });
 }
 
-function createWindow() {
+function createSplashWindow() {
+  splashCreatedTime = Date.now();
+  splashWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    frame: false,
+    show: true,
+    resizable: false,
+    backgroundColor: '#000',
+  });
+  const splashPath = path.join(__dirname, '..', 'client-desktop', 'build-desktop-app', 'splash.html');
+  splashWindow.loadFile(splashPath);
+  splashWindow.center();
+}
+
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 960,
     minHeight: 640,
+    show: false,
+    backgroundColor: '#f0f2f7',
     title: 'ChatApp',
     icon: path.join(__dirname, '..', 'electron-assets', 'app.ico'),
     webPreferences: {
@@ -275,6 +298,30 @@ function createWindow() {
   });
 
   mainWindow.removeMenu();
+
+  const MIN_SPLASH_MS = 1500;
+
+  const splashFallback = setTimeout(() => {
+    mainWindow.show();
+    if (splashWindow) {
+      splashWindow.destroy();
+      splashWindow = null;
+    }
+  }, 10000);
+
+  mainWindow.once('ready-to-show', () => {
+    clearTimeout(splashFallback);
+    const elapsed = Date.now() - splashCreatedTime;
+    const delay = Math.max(0, MIN_SPLASH_MS - elapsed);
+    setTimeout(() => {
+      mainWindow.show();
+      mainWindow.focus();
+      if (splashWindow) {
+        splashWindow.destroy();
+        splashWindow = null;
+      }
+    }, delay);
+  });
 
   mainWindow.on('close', (event) => {
     if (isQuitting) return;
@@ -327,13 +374,25 @@ function createTray() {
   });
 }
 
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  dialog.showErrorBox('ChatApp', '当前已有正在运行客户端');
+  app.exit(0);
+}
+
+app.on('second-instance', () => {
+  showMainWindow();
+});
+
 app.whenReady().then(() => {
+  if (!gotTheLock) return;
   registerSettingsHandlers();
-  createWindow();
+  createSplashWindow();
+  createMainWindow();
   createTray();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
     showMainWindow();
   });
 });

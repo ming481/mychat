@@ -182,9 +182,12 @@ export default function App() {
       if (!cancelled) {
         setBootstrapping(false);
         setChecking(false);
-        if (Capacitor.isNativePlatform()) SplashScreen.hide();
+        if (Capacitor.isNativePlatform()) {
+          SplashScreen.hide();
+          if (window.AndroidSplash) window.AndroidSplash.hideSplash();
+        }
       }
-    }, 200);
+    }, 100);
 
     return () => { cancelled = true; clearTimeout(timer); setBootstrapping(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

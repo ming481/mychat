@@ -11,8 +11,7 @@
   },
   "plugins": {
     "SplashScreen": {
-      "launchAutoHide": false,
-      "backgroundColor": "#f5f7fc"
+      "launchShowDuration": 0
     }
   }
 }

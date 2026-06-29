@@ -49,25 +49,32 @@ export default function App() {
     setBootstrapping(true);
 
     async function bootstrapAuth() {
-      if (!token) return;
+      if (!token) {
+        if (!cancelled) {
+          setBootstrapping(false);
+          setChecking(false);
+        }
+        return;
+      }
       try {
         const nextUser = await authAPI.me();
-        if (!cancelled) setAuth(token, nextUser);
+        if (!cancelled) {
+          setAuth(token, nextUser);
+          setBootstrapping(false);
+          setChecking(false);
+        }
       } catch {
-        if (!cancelled) logout();
+        if (!cancelled) {
+          logout();
+          setBootstrapping(false);
+          setChecking(false);
+        }
       }
     }
 
     bootstrapAuth();
 
-    const timer = setTimeout(() => {
-      if (!cancelled) {
-        setBootstrapping(false);
-        setChecking(false);
-      }
-    }, 500);
-
-    return () => { cancelled = true; clearTimeout(timer); setBootstrapping(false); };
+    return () => { cancelled = true; setBootstrapping(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -82,12 +89,7 @@ export default function App() {
   }, [checking]);
 
   if (checking) {
-    return (
-      <div className="app-startup">
-        <div className="app-startup-logo">ChatApp</div>
-        <div className="app-startup-text">正在启动...</div>
-      </div>
-    );
+    return null;
   }
 
   return (
