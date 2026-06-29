@@ -1,5 +1,9 @@
 package com.chatapp.mobile;
 
+import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
@@ -23,6 +27,11 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void addSplashOverlay() {
+        // 保持导航栏与启动图片底部蓝色一致
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setNavigationBarColor(Color.parseColor("#132039"));
+        }
+
         ImageView splash = new ImageView(this);
         splash.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -50,6 +59,18 @@ public class MainActivity extends BridgeActivity {
 
     private void removeSplashWithFade() {
         if (splashOverlay == null || splashOverlay.getParent() == null) return;
+
+        // 同步动画：浮层淡出 + 导航栏从蓝渐变到白
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            int blue = Color.parseColor("#132039");
+            int white = Color.WHITE;
+            ValueAnimator navAnim = ValueAnimator.ofObject(new ArgbEvaluator(), blue, white);
+            navAnim.setDuration(300);
+            navAnim.addUpdateListener(animator ->
+                getWindow().setNavigationBarColor((int) animator.getAnimatedValue())
+            );
+            navAnim.start();
+        }
 
         AlphaAnimation fadeOut = new AlphaAnimation(1f, 0f);
         fadeOut.setDuration(300);
